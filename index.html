@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F4E79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>倉庫進出登記</title>
+<script src="config.js"></script>
+<style>
+  :root{
+    --main:#1F4E79; --main-dk:#1F4E79; --main-ink:#1F4E79; --main-2:#2E6BA8; --bg:#F3F5F8; --card:#fff; --line:#E1E5EB; --ink:#1D2633; --mute:#6B7685;
+    --out:#D9622B; --out-bg:#FDEEE6; --in:#2E8B57; --in-bg:#E5F4EC; --warn:#B42318; --warn-bg:#FDECEA;
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+  button{font:inherit;color:inherit;cursor:pointer}
+  header{position:sticky;top:0;z-index:20;background:var(--main);color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 16px 0}
+  header h1{margin:0 0 8px;font-size:17px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  header h1 .sync{margin-left:auto;font-size:12px;font-weight:400;opacity:.8}
+  nav{display:flex;gap:4px}
+  nav button{flex:1;background:none;border:0;color:#C9D8EA;padding:10px 0 12px;font-size:15px;border-bottom:3px solid transparent}
+  nav button.on{color:#fff;font-weight:700;border-bottom-color:#fff}
+  main{max-width:720px;margin:0 auto;padding:12px 12px calc(env(safe-area-inset-bottom) + 120px)}
+  .card{background:var(--card);border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+  .step{display:flex;align-items:baseline;gap:8px;margin:0 0 10px;font-size:15px;font-weight:700}
+  .step .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--main);color:#fff;font-size:12px;font-weight:700;flex:none}
+  .step .val{margin-left:auto;font-weight:400;color:var(--mute);font-size:13px;text-align:right}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:9px 15px;font-size:15px;min-height:44px;line-height:1.2}
+  .chip.on{background:var(--main);border-color:var(--main);color:#fff;font-weight:700}
+  .chip small{opacity:.65;margin-left:4px;font-size:12px}
+  .chip .pf{display:inline-block;min-width:20px;font-weight:700;margin-right:4px;color:var(--main-2)}
+  .chip.on .pf{color:#BFD6EF}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dirbtn{border:2px solid var(--line);background:#fff;border-radius:var(--r);padding:16px 8px;font-size:20px;font-weight:700;min-height:64px}
+  .dirbtn span{display:block;font-size:13px;font-weight:400;color:var(--mute)}
+  .dirbtn.out.on{background:var(--out-bg);border-color:var(--out);color:var(--out)}
+  .dirbtn.in.on{background:var(--in-bg);border-color:var(--in);color:var(--in)}
+  .hint{color:var(--mute);font-size:13px;margin:2px 0 0}
+  .qty{display:flex;align-items:center;gap:10px}
+  .qty button.pm{width:56px;height:56px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-size:28px;line-height:1}
+  .qty input{flex:1;min-width:0;height:56px;text-align:center;font-size:28px;font-weight:700;border:1.5px solid var(--line);border-radius:var(--r);background:#fff}
+  .quick{display:flex;gap:8px;margin-top:10px}
+  .quick button{flex:1;border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:10px 0;font-size:15px}
+  .stockline{margin-top:10px;font-size:14px;color:var(--mute)}
+  .stockline b{color:var(--ink);font-size:16px}
+  .btn{display:block;width:100%;border:0;border-radius:var(--r);padding:15px;font-size:17px;font-weight:700;min-height:54px}
+  .btn.primary{background:var(--main);color:#fff}
+  .btn.primary:disabled{background:#AEB9C7}
+  .btn.ghost{background:#fff;border:1.5px solid var(--main-dk);color:var(--main-ink)}
+  .cart-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  .cart-item:first-child{border-top:0}
+  .cart-item .t{flex:1;min-width:0}
+  .cart-item .t b{display:block}
+  .cart-item .t small{color:var(--mute)}
+  .cart-item .q{font-size:20px;font-weight:700;white-space:nowrap}
+  .cart-item .x{border:0;background:var(--bg);width:36px;height:36px;border-radius:50%;font-size:18px;color:var(--mute)}
+  .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;font-weight:600;vertical-align:middle}
+  .tag.out{background:var(--out-bg);color:var(--out)}
+  .tag.in{background:var(--in-bg);color:var(--in)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+  .tag.mute{background:var(--bg);color:var(--mute)}
+  label.f{display:block;font-size:14px;color:var(--mute);margin:12px 0 6px}
+  input.t{width:100%;height:48px;border:1.5px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;background:#fff}
+  .sites{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .sites .chip{min-height:36px;padding:6px 12px;font-size:14px}
+  .submitbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(243,245,248,.96);backdrop-filter:blur(6px);padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);border-top:1px solid var(--line)}
+  .submitbar .inner{max-width:720px;margin:0 auto}
+  .empty{color:var(--mute);text-align:center;padding:18px 0;font-size:14px}
+  .hscroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .hscroll::-webkit-scrollbar{display:none}
+  .hscroll .chip{flex:none;min-height:38px;padding:7px 13px;font-size:14px}
+  .filters .row{margin-bottom:10px}
+  .filters .row:last-child{margin-bottom:0}
+  .hist-day{font-size:13px;font-weight:700;color:var(--mute);margin:16px 4px 6px}
+  .hist{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:#fff;border-radius:12px;margin-bottom:6px}
+  .hist .tm{font-size:13px;color:var(--mute);width:42px;flex:none;padding-top:2px}
+  .hist .body{flex:1;min-width:0}
+  .hist .body b{font-weight:600}
+  .hist .meta{font-size:13px;color:var(--mute);margin-top:2px}
+  .hist .q{font-weight:700;font-size:17px;white-space:nowrap}
+  .hist.void{opacity:.55}
+  .stock{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border-radius:12px;margin-bottom:6px}
+  .stock .id{font-size:12px;color:var(--mute);width:40px;flex:none}
+  .stock .nm{flex:1;min-width:0}
+  .stock .nm small{display:block;color:var(--mute)}
+  .stock .num{font-size:20px;font-weight:700;text-align:right;white-space:nowrap}
+  .stock .num small{font-size:12px;font-weight:400;color:var(--mute);margin-left:2px}
+  .summary{display:flex;gap:8px;margin:4px 0 10px}
+  .summary div{flex:1;background:#fff;border-radius:12px;padding:10px;text-align:center}
+  .summary b{display:block;font-size:20px}
+  .summary span{font-size:12px;color:var(--mute)}
+  .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 70px);transform:translate(-50%,-20px);opacity:0;transition:.25s;z-index:50;
+    background:#1D2633;color:#fff;padding:12px 18px;border-radius:12px;font-size:15px;max-width:90vw;text-align:center;pointer-events:none}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.ok{background:var(--in)}
+  .toast.err{background:var(--warn)}
+  .overlay{position:fixed;inset:0;background:rgba(16,24,40,.5);z-index:60;display:none;align-items:center;justify-content:center;padding:20px}
+  .overlay.show{display:flex}
+  .dialog{background:#fff;border-radius:18px;padding:22px;width:100%;max-width:360px}
+  .dialog h2{margin:0 0 6px;font-size:18px}
+  .dialog p{margin:0 0 14px;color:var(--mute);font-size:14px}
+  .pinin{width:100%;height:56px;font-size:26px;letter-spacing:8px;text-align:center;border:1.5px solid var(--line);border-radius:12px;margin-bottom:12px}
+  .loading{text-align:center;color:var(--mute);padding:40px 0}
+  .spinner{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--main-dk);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 10px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .hidden{display:none !important}
+  .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
+</style>
+</head>
+<body>
+<header>
+  <h1><span id="title">倉庫進出登記</span><button class="refresh sync" id="syncBtn" title="重新整理">↻ <span id="syncTxt">載入中</span></button></h1>
+  <nav>
+    <button data-tab="reg" class="on">登記</button>
+    <button data-tab="hist">進出歷程</button>
+    <button data-tab="stock">庫存</button>
+  </nav>
+</header>
+
+<main>
+  <div id="boot" class="loading"><div class="spinner"></div>資料載入中…</div>
+
+  <!-- 登記 -->
+  <section id="tab-reg" class="hidden">
+    <div class="card">
+      <div class="step"><span class="n">1</span>人員<span class="val" id="v-who"></span></div>
+      <div class="chips" id="who"></div>
+    </div>
+    <div class="card">
+      <div class="step"><span class="n">2</span>進／出</div>
+      <div class="grid2">
+        <button class="dirbtn out" data-dir="出">出<span>領出</span></button>
+        <button class="dirbtn in" data-dir="進">進<span>入庫／歸還</span></button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="step"><span class="n">3</span>貨品大項<span class="val" id="v-cat"></span></div>
+      <div class="chips" id="cats"></div>
+    </div>
+    <div class="card hidden" id="card-name">
+      <div class="step"><span class="n">4</span>細項<span class="val" id="v-name"></span></div>
+      <div class="chips" id="names"></div>
+    </div>
+    <div class="card hidden" id="card-spec">
+      <div class="step"><span class="n">5</span>名稱（規格）<span class="val" id="v-spec"></span></div>
+      <div class="chips" id="specs"></div>
+    </div>
+    <div class="card hidden" id="card-qty">
+      <div class="step"><span class="n">6</span>數量<span class="val" id="v-unit"></span></div>
+      <div class="qty">
+        <button class="pm" id="minus" aria-label="減少">−</button>
+        <input id="qty" type="number" inputmode="decimal" min="0" step="any" value="1">
+        <button class="pm" id="plus" aria-label="增加">＋</button>
+      </div>
+      <div class="quick" id="quick">
+        <button data-q="1">1</button><button data-q="2">2</button><button data-q="5">5</button><button data-q="10">10</button><button data-q="20">20</button>
+      </div>
+      <div class="stockline" id="stockline"></div>
+      <div style="height:12px"></div>
+      <button class="btn ghost" id="addBtn">＋ 加入清單</button>
+    </div>
+
+    <div class="card" id="card-cart">
+      <div class="step">登記清單<span class="val" id="v-cart">尚未加入品項</span></div>
+      <div id="cart"><div class="empty">選好品項與數量後，按「加入清單」。<br>可以一次加入不同大項的多個品項。</div></div>
+      <label class="f" for="site">工地／用途（可不填）</label>
+      <input class="t" id="site" placeholder="例：淡水河金色水岸" autocomplete="off">
+      <div class="sites" id="sites"></div>
+      <label class="f" for="note">備註（可不填）</label>
+      <input class="t" id="note" placeholder="損壞、借用對象等" autocomplete="off">
+    </div>
+  </section>
+
+  <!-- 進出歷程 -->
+  <section id="tab-hist" class="hidden">
+    <div class="card filters">
+      <div class="row hscroll" id="f-range"></div>
+      <div class="row hscroll" id="f-dir"></div>
+      <div class="row hscroll" id="f-who"></div>
+      <div class="row hscroll" id="f-cat"></div>
+      <div class="row"><input class="t" id="f-q" placeholder="搜尋品項、規格、工地…" autocomplete="off"></div>
+    </div>
+    <div class="summary" id="h-sum"></div>
+    <div id="h-list"></div>
+  </section>
+
+  <!-- 庫存 -->
+  <section id="tab-stock" class="hidden">
+    <div class="card filters">
+      <div class="row hscroll" id="s-cat"></div>
+      <div class="row hscroll" id="s-flag"></div>
+      <div class="row"><input class="t" id="s-q" placeholder="搜尋品項或編號…" autocomplete="off"></div>
+    </div>
+    <div id="s-list"></div>
+  </section>
+</main>
+
+<div class="submitbar hidden" id="submitbar"><div class="inner">
+  <button class="btn primary" id="submitBtn" disabled>送出登記</button>
+</div></div>
+
+<div class="overlay" id="pinBox"><div class="dialog">
+  <h2>輸入通行碼</h2>
+  <p>第一次使用請輸入倉庫管理員給你的 6 位數通行碼，之後這支手機就不用再輸入。</p>
+  <input class="pinin" id="pin" type="tel" inputmode="numeric" maxlength="12" autocomplete="off">
+  <button class="btn primary" id="pinOk">確定</button>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const CFG = window.WAREHOUSE_CONFIG || {};
+  const API = (CFG.API_URL || '').trim();
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const LS = {
+    get(k, d){ try { const v = localStorage.getItem('wh_' + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+    set(k, v){ try { localStorage.setItem('wh_' + k, JSON.stringify(v)); } catch(e){} },
+  };
+  if (CFG.TITLE) { $('#title').textContent = CFG.TITLE; document.title = CFG.TITLE; }
+
+  let DATA = null, HIST = null;
+  const S = { who: LS.get('who', ''), dir: '', cat: '', name: '', item: null, cart: [] };
+  const H = { range: '7', dir: '全部', who: '全部', cat: '全部', q: '' };
+  const ST = { cat: '全部', flag: '全部', q: '' };
+  let tab = 'reg';
+
+  // ---------- API ----------
+  async function api(params, body){
+    if (!API) throw new Error('尚未設定 API 網址（config.js）');
+    const pin = LS.get('pin', '');
+    let res;
+    if (body) {
+      res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ pin }, body)) });
+    } else {
+      const q = new URLSearchParams(Object.assign({ pin }, params || {}));
+      res = await fetch(API + (API.includes('?') ? '&' : '?') + q.toString());
+    }
+    const j = await res.json();
+    if (!j.ok) {
+      if (j.error === 'PIN') { askPin(); throw new Error('PIN'); }
+      throw new Error(j.error || '伺服器錯誤');
+    }
+    return j;
+  }
+
+  function askPin(){ $('#pinBox').classList.add('show'); setTimeout(() => $('#pin').focus(), 50); }
+  $('#pinOk').onclick = () => {
+    const v = $('#pin').value.trim();
+    if (!v) return;
+    LS.set('pin', v);
+    $('#pinBox').classList.remove('show');
+    load();
+  };
+  $('#pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#pinOk').click(); });
+
+  function toast(msg, type){
+    const t = $('#toast');
+    t.textContent = msg; t.className = 'toast show ' + (type || '');
+    clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', type === 'err' ? 4000 : 2200);
+  }
+
+  async function load(silent){
+    $('#syncTxt').textContent = '同步中';
+    try {
+      DATA = await api({ action: 'init' });
+      if (S.who && DATA.staff.indexOf(S.who) < 0) S.who = '';
+      if (S.item) S.item = DATA.items.find(i => i.id === S.item.id) || null;
+      $('#boot').classList.add('hidden');
+      showTab(tab);
+      renderReg();
+      $('#syncTxt').textContent = '已同步 ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+      if (tab === 'hist' || HIST) loadHist();
+    } catch (e) {
+      $('#syncTxt').textContent = '連線失敗';
+      if (e.message !== 'PIN') {
+        $('#boot').innerHTML = '⚠ 無法載入資料<br><small>' + esc(e.message) + '</small>';
+        if (!silent) toast('無法載入：' + e.message, 'err');
+      }
+    }
+  }
+  async function loadHist(){
+    if (tab === 'hist' && !HIST) $('#h-list').innerHTML = '<div class="loading"><div class="spinner"></div>讀取紀錄中…</div>';
+    try { HIST = (await api({ action: 'history', limit: 1000 })).rows; renderHist(); }
+    catch (e) { if (e.message !== 'PIN') $('#h-list').innerHTML = '<div class="empty">⚠ ' + esc(e.message) + '</div>'; }
+  }
+  $('#syncBtn').onclick = () => load();
+
+  // ---------- 分頁 ----------
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  function showTab(t){
+    tab = t;
+    document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    ['reg', 'hist', 'stock'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== t || !DATA));
+    $('#submitbar').classList.toggle('hidden', t !== 'reg' || !DATA);
+    if (!DATA) return;
+    if (t === 'hist') { HIST ? renderHist() : loadHist(); }
+    if (t === 'stock') renderStock();
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- 登記 ----------
+  const prefixOf = cat => (DATA.cats.find(c => c.cat === cat) || {}).prefix || '';
+  const catsList = () => {
+    const known = DATA.cats.map(c => c.cat);
+    DATA.items.forEach(i => { if (known.indexOf(i.cat) < 0) known.push(i.cat); });
+    return known.filter(c => DATA.items.some(i => i.cat === c));
+  };
+  const chip = (label, on, attrs, extra) => `<button class="chip${on ? ' on' : ''}" ${attrs || ''}>${extra || ''}${esc(label)}</button>`;
+  const fmtNum = n => (n == null || n === '') ? '—' : (Math.round(Number(n) * 100) / 100).toString();
+  const specLabel = s => s || '（無規格）';
+
+  function renderReg(){
+    $('#who').innerHTML = DATA.staff.map(w => chip(w, S.who === w, `data-who="${esc(w)}"`)).join('') || '<div class="hint">請到試算表「設定」分頁新增人員</div>';
+    $('#v-who').textContent = S.who;
+    document.querySelectorAll('.dirbtn').forEach(b => b.classList.toggle('on', b.dataset.dir === S.dir));
+
+    $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, `<span class="pf">${esc(prefixOf(c))}</span>`)).join('');
+    $('#v-cat').textContent = S.cat;
+
+    const inCat = DATA.items.filter(i => i.cat === S.cat);
+    const names = [...new Set(inCat.map(i => i.name))];
+    $('#card-name').classList.toggle('hidden', !S.cat);
+    $('#names').innerHTML = names.map(n => {
+      const c = inCat.filter(i => i.name === n).length;
+      return chip(n, S.name === n, `data-name="${esc(n)}"`) .replace('</button>', c > 1 ? `<small>${c} 種</small></button>` : '</button>');
+    }).join('');
+    $('#v-name').textContent = S.name;
+
+    const specs = inCat.filter(i => i.name === S.name);
+    $('#card-spec').classList.toggle('hidden', !S.name);
+    $('#specs').innerHTML = specs.map(i => chip(specLabel(i.spec), S.item && S.item.id === i.id, `data-id="${esc(i.id)}"`)).join('');
+    $('#v-spec').textContent = S.item ? S.item.id : '';
+
+    $('#card-qty').classList.toggle('hidden', !S.item);
+    if (S.item) {
+      $('#v-unit').textContent = S.item.unit ? '單位：' + S.item.unit : '';
+      const st = S.item.stock;
+      $('#stockline').innerHTML = '目前帳面庫存：<b>' + fmtNum(st) + '</b> ' + esc(S.item.unit || '') +
+        (S.item.alert ? ' <span class="tag warn">' + esc(S.item.alert) + '</span>' : '');
+    }
+    renderCart();
+  }
+
+  $('#who').onclick = e => { const b = e.target.closest('[data-who]'); if (!b) return; S.who = b.dataset.who; LS.set('who', S.who); renderReg(); };
+  document.querySelectorAll('.dirbtn').forEach(b => b.onclick = () => { S.dir = b.dataset.dir; renderReg(); });
+  $('#cats').onclick = e => {
+    const b = e.target.closest('[data-cat]'); if (!b) return;
+    S.cat = b.dataset.cat; S.name = ''; S.item = null; renderReg();
+    scrollToCard('#card-name');
+  };
+  $('#names').onclick = e => {
+    const b = e.target.closest('[data-name]'); if (!b) return;
+    S.name = b.dataset.name; S.item = null;
+    const specs = DATA.items.filter(i => i.cat === S.cat && i.name === S.name);
+    if (specs.length === 1) { S.item = specs[0]; $('#qty').value = 1; }
+    renderReg();
+    scrollToCard(specs.length === 1 ? '#card-qty' : '#card-spec');
+  };
+  $('#specs').onclick = e => {
+    const b = e.target.closest('[data-id]'); if (!b) return;
+    S.item = DATA.items.find(i => i.id === b.dataset.id); $('#qty').value = 1; renderReg();
+    scrollToCard('#card-qty');
+  };
+  function scrollToCard(sel){ setTimeout(() => { const el = $(sel); if (el && !el.classList.contains('hidden')) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 30); }
+
+  const getQty = () => { const v = parseFloat($('#qty').value); return isFinite(v) ? v : 0; };
+  $('#minus').onclick = () => { $('#qty').value = Math.max(1, getQty() - 1); };
+  $('#plus').onclick = () => { $('#qty').value = getQty() + 1; };
+  $('#quick').onclick = e => { const b = e.target.closest('[data-q]'); if (b) $('#qty').value = b.dataset.q; };
+
+  $('#addBtn').onclick = () => {
+    const q = getQty();
+    if (!S.item) return;
+    if (!(q > 0)) { toast('數量要大於 0', 'err'); return; }
+    const ex = S.cart.find(c => c.id === S.item.id);
+    if (ex) ex.qty += q; else S.cart.push({ id: S.item.id, qty: q });
+    toast('已加入：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + q, 'ok');
+    S.name = ''; S.item = null; $('#qty').value = 1;
+    renderReg();
+    scrollToCard('#card-cart');
+  };
+
+  function renderCart(){
+    const box = $('#cart');
+    if (!S.cart.length) {
+      box.innerHTML = '<div class="empty">選好品項與數量後，按「加入清單」。<br>可以一次加入不同大項的多個品項。</div>';
+      $('#v-cart').textContent = '尚未加入品項';
+    } else {
+      box.innerHTML = S.cart.map((c, k) => {
+        const it = DATA.items.find(i => i.id === c.id) || { name: c.id, spec: '', unit: '' };
+        const over = S.dir === '出' && it.stock != null && c.qty > it.stock;
+        return `<div class="cart-item"><div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
+          <small>${esc(it.id)}・${esc(it.cat || '')}</small>${over ? ' <span class="tag warn">超過帳面庫存 ' + fmtNum(it.stock) + '</span>' : ''}</div>
+          <div class="q">${fmtNum(c.qty)} <small>${esc(it.unit || '')}</small></div>
+          <button class="x" data-del="${k}" aria-label="刪除">×</button></div>`;
+      }).join('');
+      $('#v-cart').textContent = S.cart.length + ' 項';
+    }
+    $('#sites').innerHTML = (DATA.sites || []).slice(0, 8).map(s => chip(s, false, `data-site="${esc(s)}"`)).join('');
+    const btn = $('#submitBtn');
+    const miss = !S.who ? '請先選人員' : !S.dir ? '請選進或出' : !S.cart.length ? '請加入品項' : '';
+    btn.disabled = !!miss;
+    btn.textContent = miss || `送出登記（${S.dir}・${S.cart.length} 項）`;
+    btn.style.background = miss ? '' : (S.dir === '出' ? 'var(--out)' : 'var(--in)');
+    btn.style.color = miss ? '' : '#fff';
+  }
+  $('#cart').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; S.cart.splice(Number(b.dataset.del), 1); renderCart(); };
+  $('#sites').onclick = e => { const b = e.target.closest('[data-site]'); if (b) $('#site').value = b.dataset.site; };
+
+  $('#submitBtn').onclick = async () => {
+    const btn = $('#submitBtn');
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = '送出中…';
+    try {
+      const r = await api(null, { who: S.who, dir: S.dir, site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
+      toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
+      S.cart = []; S.dir = ''; S.cat = ''; S.name = ''; S.item = null;
+      $('#note').value = ''; $('#site').value = '';
+      HIST = null;
+      await load(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      if (e.message !== 'PIN') toast('送出失敗：' + e.message, 'err');
+      renderCart();
+    }
+  };
+
+  // ---------- 進出歷程 ----------
+  const RANGES = [['1', '今天'], ['7', '近 7 天'], ['30', '近 30 天'], ['all', '全部']];
+  function rowDate(r){
+    if (r.time) return new Date(r.time);
+    const m = String(r.date).match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  const dayKey = d => d ? d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }) : '日期待核';
+  function renderHist(){
+    const whos = ['全部', ...new Set(HIST.map(r => r.who).filter(Boolean))];
+    const cats = ['全部', ...catsList()];
+    $('#f-range').innerHTML = RANGES.map(([k, v]) => chip(v, H.range === k, `data-k="range" data-v="${k}"`)).join('');
+    $('#f-dir').innerHTML = ['全部', '出', '進'].map(v => chip(v === '全部' ? '進＋出' : v, H.dir === v, `data-k="dir" data-v="${v}"`)).join('');
+    $('#f-who').innerHTML = whos.map(v => chip(v === '全部' ? '所有人員' : v, H.who === v, `data-k="who" data-v="${esc(v)}"`)).join('');
+    $('#f-cat').innerHTML = cats.map(v => chip(v === '全部' ? '所有大項' : v, H.cat === v, `data-k="cat" data-v="${esc(v)}"`, v === '全部' ? '' : `<span class="pf">${esc(prefixOf(v))}</span>`)).join('');
+
+    const now = new Date(), start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (H.range !== 'all') start.setDate(start.getDate() - (Number(H.range) - 1));
+    const q = H.q.toLowerCase();
+    const rows = HIST.filter(r => {
+      const d = rowDate(r);
+      if (H.range !== 'all' && (!d || d < start)) return false;
+      if (H.dir !== '全部' && r.dir !== H.dir) return false;
+      if (H.who !== '全部' && r.who !== H.who) return false;
+      if (H.cat !== '全部' && r.cat !== H.cat) return false;
+      if (q && ![r.name, r.spec, r.site, r.note, r.id, r.who].join(' ').toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const counted = rows.filter(r => String(r.counted).indexOf('否') !== 0);
+    $('#h-sum').innerHTML = `<div><b>${rows.length}</b><span>筆紀錄</span></div>
+      <div><b style="color:var(--out)">${counted.filter(r => r.dir === '出').length}</b><span>出</span></div>
+      <div><b style="color:var(--in)">${counted.filter(r => r.dir === '進').length}</b><span>進</span></div>`;
+    if (!rows.length) { $('#h-list').innerHTML = '<div class="empty">沒有符合條件的紀錄</div>'; return; }
+    let html = '', last = null;
+    rows.forEach(r => {
+      const d = rowDate(r), k = dayKey(d);
+      if (k !== last) { html += `<div class="hist-day">${esc(k)}</div>`; last = k; }
+      const tm = r.time ? d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
+      const voided = String(r.counted).indexOf('否') === 0;
+      html += `<div class="hist${voided ? ' void' : ''}"><div class="tm">${tm}</div><div class="body">
+        <span class="tag ${r.dir === '出' ? 'out' : 'in'}">${esc(r.dir)}</span> <b>${esc(r.name)}${r.spec ? '（' + esc(r.spec) + '）' : ''}</b>
+        <div class="meta">${esc(r.who || '—')}${r.site ? '・' + esc(r.site) : ''}${r.id ? '・' + esc(r.id) : ''}${r.note ? '・' + esc(r.note) : ''}</div>
+        ${voided ? '<span class="tag mute">' + esc(r.counted) + '</span> ' : ''}${r.check ? '<span class="tag warn">' + esc(r.check) + '</span>' : ''}
+        </div><div class="q">${r.dir === '出' ? '−' : '+'}${fmtNum(r.qty)} <small>${esc(r.unit || '')}</small></div></div>`;
+    });
+    $('#h-list').innerHTML = html;
+  }
+  ['#f-range', '#f-dir', '#f-who', '#f-cat'].forEach(s => $(s).onclick = e => {
+    const b = e.target.closest('[data-k]'); if (!b) return; H[b.dataset.k] = b.dataset.v; renderHist();
+  });
+  $('#f-q').oninput = e => { H.q = e.target.value.trim(); renderHist(); };
+
+  // ---------- 庫存 ----------
+  function renderStock(){
+    const cats = ['全部', ...catsList()];
+    $('#s-cat').innerHTML = cats.map(v => chip(v === '全部' ? '所有大項' : v, ST.cat === v, `data-v="${esc(v)}"`, v === '全部' ? '' : `<span class="pf">${esc(prefixOf(v))}</span>`)).join('');
+    $('#s-flag').innerHTML = ['全部', '需注意'].map(v => chip(v === '全部' ? '全部品項' : '⚠ 只看需注意', ST.flag === v, `data-f="${v}"`)).join('');
+    const q = ST.q.toLowerCase();
+    const rows = DATA.items.filter(i =>
+      (ST.cat === '全部' || i.cat === ST.cat) &&
+      (ST.flag === '全部' || i.alert) &&
+      (!q || [i.id, i.name, i.spec].join(' ').toLowerCase().includes(q)));
+    $('#s-list').innerHTML = rows.length ? rows.map(i => `<div class="stock"><div class="id">${esc(i.id)}</div>
+      <div class="nm">${esc(i.name)}${i.spec ? '（' + esc(i.spec) + '）' : ''}<small>${esc(i.cat)}${i.alert ? ' <span class="tag warn">' + esc(i.alert) + '</span>' : ''}</small></div>
+      <div class="num" style="${i.stock < 0 ? 'color:var(--warn)' : ''}">${fmtNum(i.stock)}<small>${esc(i.unit || '')}</small></div></div>`).join('')
+      : '<div class="empty">沒有符合的品項</div>';
+  }
+  $('#s-cat').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; ST.cat = b.dataset.v; renderStock(); };
+  $('#s-flag').onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; ST.flag = b.dataset.f; renderStock(); };
+  $('#s-q').oninput = e => { ST.q = e.target.value.trim(); renderStock(); };
+
+  // ---------- 啟動 ----------
+  if (!API) {
+    $('#boot').innerHTML = '⚠ 尚未設定資料來源<br><small>請在 GitHub 編輯 config.js，貼上 Apps Script 網頁應用程式網址。</small>';
+    $('#syncTxt').textContent = '未設定';
+  } else if (!LS.get('pin', '')) {
+    askPin();
+  } else {
+    load();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && DATA) load(true); });
+})();
+</script>
+</body>
+</html>

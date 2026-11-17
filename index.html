@@ -374,21 +374,23 @@
     return j;
   }
 
-  function lgStep(s){ ['code', 'name', 'pin'].forEach(x => $('#lg-' + x).classList.toggle('hidden', x !== s)); }
+  function lgStep(s){ lgStep.cur = s; ['code', 'name', 'pin'].forEach(x => $('#lg-' + x).classList.toggle('hidden', x !== s)); }
   async function showLogin(step, err){
     $('#loginBox').classList.add('show');
     if (step === 'code' || !AUTH.code) {
       lgStep('code'); $('#codeErr').textContent = err || ''; setTimeout(() => $('#codeIn').focus(), 50); return;
     }
     lgStep('name');
-    $('#lgNames').innerHTML = '<div class="hint">載入名單中…</div>';
+    const drawNames = () => { $('#lgNames').innerHTML = LG_STAFF.map((s, k) => `<button class="chip" data-k="${k}">${esc(s.name)}${s.hasPin ? '' : '<small>未設定</small>'}</button>`).join('')
+        || '<div class="hint">名單是空的，請管理員到試算表「設定」A 欄加入人員。</div>'; };
+    const cachedStaff = LS.get('staff', null);
+    if (cachedStaff && cachedStaff.length) { LG_STAFF = cachedStaff; drawNames(); }
+    else $('#lgNames').innerHTML = '<div class="hint">載入名單中…</div>';
     try {
       const q = new URLSearchParams({ action: 'staff', code: AUTH.code });
       const j = await (await fetch(API + '?' + q.toString())).json();
       if (!j.ok) { if (j.error === 'CODE') { AUTH.code = ''; LS.set('code', ''); return showLogin('code', '公司通行碼不正確'); } throw new Error(j.error); }
-      LG_STAFF = j.staff;
-      $('#lgNames').innerHTML = LG_STAFF.map((s, k) => `<button class="chip" data-k="${k}">${esc(s.name)}${s.hasPin ? '' : '<small>未設定</small>'}</button>`).join('')
-        || '<div class="hint">名單是空的，請管理員到試算表「設定」A 欄加入人員。</div>';
+      if (lgStep.cur !== 'pin') { LG_STAFF = j.staff; LS.set('staff', j.staff); drawNames(); }
     } catch (e) { $('#lgNames').innerHTML = '<div class="err">⚠ ' + esc(e.message) + '</div>'; }
   }
   $('#codeOk').onclick = async () => {
@@ -429,7 +431,7 @@
   };
   $('#logoutBtn').onclick = () => {
     AUTH.name = ''; AUTH.pin = ''; LS.set('name', ''); LS.set('pin2', '');
-    DATA = null; HIST = null; S.cart = []; $('#meBox').classList.add('hidden');
+    DATA = null; HIST = null; SHOWN = false; S.cart = []; S.photos = []; LS.set('data', null); $('#meBox').classList.add('hidden');
     ['reg', 'hist', 'stock', 'admin'].forEach(x => $('#tab-' + x).classList.add('hidden'));
     $('#navAdmin').classList.add('hidden'); tab = 'reg';
     $('#submitbar').classList.add('hidden');
@@ -442,21 +444,32 @@
     clearTimeout(t._h); t._h = setTimeout(() => t.className = 'toast', type === 'err' ? 4000 : 2200);
   }
 
+  // 先用手機裡上次的資料立刻顯示，再到背景更新
+  let SHOWN = false;
+  function applyData(d){
+    DATA = d;
+    $('#meName').textContent = '👤 ' + DATA.me; $('#meBox').classList.remove('hidden');
+    $('#navAdmin').classList.toggle('hidden', !DATA.isAdmin);
+    if (!DATA.isAdmin && tab === 'admin') tab = 'reg';
+    if (S.item) S.item = DATA.items.find(i => i.id === S.item.id) || null;
+    $('#boot').classList.add('hidden');
+    if (!SHOWN) { SHOWN = true; showTab(tab); } else if (tab === 'stock') renderStock();
+    renderReg();
+  }
+  const syncedNow = () => { $('#syncTxt').textContent = '已同步 ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }); };
   async function load(silent){
     $('#syncTxt').textContent = '同步中';
+    if (!DATA) {
+      const c = LS.get('data', null);
+      if (c && c.me === AUTH.name && c.items) { applyData(c); $('#syncTxt').textContent = '更新中…'; }
+    }
     try {
-      DATA = await api({ action: 'init' });
-      $('#meName').textContent = '👤 ' + DATA.me; $('#meBox').classList.remove('hidden');
-      $('#navAdmin').classList.toggle('hidden', !DATA.isAdmin);
-      if (!DATA.isAdmin && tab === 'admin') tab = 'reg';
-      if (S.item) S.item = DATA.items.find(i => i.id === S.item.id) || null;
-      $('#boot').classList.add('hidden');
-      showTab(tab);
-      renderReg();
-      $('#syncTxt').textContent = '已同步 ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-      if (tab === 'hist' || HIST) loadHist();
+      const d = await api({ action: 'init' });
+      applyData(d); LS.set('data', d); syncedNow();
+      if (tab === 'hist' || HIST) loadHist(); else setTimeout(() => { if (!HIST && DATA) loadHist(); }, 600);
     } catch (e) {
       $('#syncTxt').textContent = '連線失敗';
+      if (DATA && e.message !== 'AUTH') { if (!silent) toast('無法更新，顯示的是上次資料：' + e.message, 'err'); return; }
       if (e.message !== 'AUTH') {
         $('#boot').innerHTML = '⚠ 無法載入資料<br><small>' + esc(e.message) + '</small>';
         if (!silent) toast('無法載入：' + e.message, 'err');
@@ -716,7 +729,8 @@
       S.cart = []; S.photos = []; S.cat = ''; S.name = ''; S.item = null;
       $('#note').value = ''; $('#site').value = '';
       HIST = null;
-      await load(true);
+      if (r.init) { applyData(Object.assign({}, DATA, r.init)); LS.set('data', DATA); syncedNow(); setTimeout(loadHist, 300); }
+      else await load(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       if (e.message !== 'AUTH') $('#cErr').textContent = '送出失敗：' + e.message;
@@ -825,7 +839,7 @@
       const r = await api(null, { action: 'item_add', cat, itemName: name, spec, unit: $('#iUnit').value.trim(), init: $('#iInit').value });
       $('#itemBox').classList.remove('show');
       toast('已新增 ' + name + (spec ? '（' + spec + '）' : '') + '・' + r.id, 'ok');
-      await load(true);
+      if (r.init) { applyData(Object.assign({}, DATA, r.init)); LS.set('data', DATA); syncedNow(); } else await load(true);
       S.cat = cat; S.name = name; S.item = DATA.items.find(i => i.id === r.id) || null; $('#qty').value = 1;
       renderReg(); scrollToCard('#card-qty');
     } catch (e) { if (e.message !== 'AUTH') $('#iErr').textContent = '⚠ ' + e.message; else $('#itemBox').classList.remove('show'); }

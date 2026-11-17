@@ -156,6 +156,13 @@
   .sg.act-off{background:#B4541F;border-color:#B4541F;color:#fff;opacity:1}
   .sg.sure{background:var(--warn);border-color:var(--warn);color:#fff}
   .sg:disabled{cursor:default}
+  .erow{display:flex;align-items:center;gap:10px;background:#EAF1F8;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .erow .who{flex:1;min-width:0}
+  .erow .who b{font-size:16px;word-break:break-all}
+  .erow .who small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+  .ebtn{background:#fff;border:1.5px solid var(--main);color:var(--main);font-weight:700;font-size:14px;padding:7px 12px;border-radius:10px;white-space:nowrap;flex:none}
+  .ecathead{display:flex;align-items:center;gap:10px;margin:12px 0 10px}
+  .ecathead b{flex:1;font-size:16px;min-width:0;word-break:break-all}
   .sg.idle{display:block;text-align:center;background:#EEF0F3;border-color:#D5DAE1;color:#7A8494}
   .sbtns .lnk{text-align:center}
   .pill{white-space:nowrap}
@@ -276,6 +283,16 @@
         <div class="err" id="staffErr" style="color:var(--warn);font-size:14px;margin-top:8px"></div>
       </div>
     </div>
+    <div class="card">
+      <div class="acc-h" id="accItems">📦 品項名稱管理<span class="caret">▾</span></div>
+      <div id="accItemsBody">
+        <p class="hint" style="margin:10px 0 12px;line-height:1.6">修改分類、品項、規格或單位的名稱。存檔後，試算表的「品項清單」、各分類分頁、「進出歷程」都會一起更新；編號和庫存不變。</p>
+        <div class="row hscroll" id="eCats"></div>
+        <div class="row" style="margin-top:8px"><input class="t" id="eQ" placeholder="搜尋品項或編號…" autocomplete="off"></div>
+        <div id="eHead"></div>
+        <div id="eList"></div>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -330,6 +347,19 @@
   </div>
   <div class="err" id="iErr" style="margin-top:10px"></div>
   <div class="btnrow"><button class="btn ghost" id="iCancel">取消</button><button class="btn primary" id="iOk">新增</button></div>
+</div></div>
+
+<div class="overlay" id="editBox"><div class="dialog">
+  <h2 id="eTitle">修改名稱</h2>
+  <p id="eHint"></p>
+  <div id="eCatRow"><label class="f" id="eCatLbl">分類</label><input class="t" id="eCat" list="eCatList" autocomplete="off"><datalist id="eCatList"></datalist></div>
+  <div id="eItemRows">
+    <label class="f">品項名稱</label><input class="t" id="eName" autocomplete="off">
+    <label class="f">規格／尺寸（可不填）</label><input class="t" id="eSpec" autocomplete="off">
+    <label class="f">單位（可不填）</label><input class="t" id="eUnit" placeholder="支、台、個…" autocomplete="off">
+  </div>
+  <div class="err" id="eErr" style="margin-top:10px"></div>
+  <div class="btnrow"><button class="btn ghost" id="eCancel">取消</button><button class="btn primary" id="eOk">儲存</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -454,7 +484,7 @@
     if (!DATA.isAdmin && tab === 'admin') tab = 'reg';
     if (S.item) S.item = DATA.items.find(i => i.id === S.item.id) || null;
     $('#boot').classList.add('hidden');
-    if (!SHOWN) { SHOWN = true; showTab(tab); } else if (tab === 'stock') renderStock();
+    if (!SHOWN) { SHOWN = true; showTab(tab); } else if (tab === 'stock') renderStock(); else if (tab === 'admin') renderEdit();
     renderReg();
   }
   const syncedNow = () => { $('#syncTxt').textContent = '已同步 ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }); };
@@ -494,7 +524,7 @@
     if (!DATA) return;
     if (t === 'hist') { HIST ? renderHist() : loadHist(); }
     if (t === 'stock') renderStock();
-    if (t === 'admin') loadStaff();
+    if (t === 'admin') { loadStaff(); renderEdit(); }
     window.scrollTo(0, 0);
   }
 
@@ -905,6 +935,75 @@
     if (ok) { $('#newName').value = ''; toast('已新增 ' + name, 'ok'); }
   };
   $('#newName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#addStaff').click(); });
+
+  // ---------- 設定：品項名稱管理（管理者） ----------
+  const ED = { cat: '', q: '' };
+  let EMODE = null;
+  function renderEdit(){
+    if (!DATA || !DATA.isAdmin) return;
+    const cats = catsList();
+    if (ED.cat && cats.indexOf(ED.cat) < 0) ED.cat = '';
+    $('#eCats').innerHTML = cats.map(c => chip(c, ED.cat === c && !ED.q, `data-ec="${esc(c)}"`, pfSpan(c))).join('');
+    const q = ED.q.toLowerCase();
+    let list = [];
+    if (q) list = DATA.items.filter(i => (i.id + ' ' + i.cat + ' ' + i.name + ' ' + i.spec).toLowerCase().includes(q));
+    else if (ED.cat) list = DATA.items.filter(i => i.cat === ED.cat);
+    $('#eHead').innerHTML = !q && ED.cat
+      ? `<div class="ecathead"><b>分類：${esc(ED.cat)}（${list.length} 項）</b><button class="ebtn" data-ecat="1">✏️ 改分類名稱</button></div>` : '';
+    $('#eList').innerHTML = !q && !ED.cat ? '<div class="empty">先點上面的分類，或用搜尋找品項</div>'
+      : !list.length ? '<div class="empty">沒有符合的品項</div>'
+      : list.map(i => `<div class="erow"><div class="who"><b>${esc(i.name)}${i.spec ? '（' + esc(i.spec) + '）' : ''}</b>
+          <small>${esc(i.id)}・${esc(i.cat)}${i.unit ? '・單位：' + esc(i.unit) : ''}</small></div>
+          <button class="ebtn" data-eid="${esc(i.id)}">✏️ 編輯</button></div>`).join('');
+  }
+  $('#accItems').onclick = () => { $('#accItems').classList.toggle('closed'); $('#accItemsBody').classList.toggle('hidden'); };
+  $('#eCats').onclick = e => { const b = e.target.closest('[data-ec]'); if (!b) return; ED.cat = b.dataset.ec; ED.q = ''; $('#eQ').value = ''; renderEdit(); };
+  $('#eQ').oninput = e => { ED.q = e.target.value.trim(); renderEdit(); };
+  function openEdit(mode, it){
+    EMODE = { mode, id: it ? it.id : '', from: ED.cat };
+    $('#eCatList').innerHTML = catsList().map(c => `<option value="${esc(c)}">`).join('');
+    $('#eItemRows').classList.toggle('hidden', mode === 'cat');
+    $('#eErr').textContent = '';
+    if (mode === 'cat') {
+      $('#eTitle').textContent = '修改分類名稱';
+      $('#eCatLbl').textContent = '新的分類名稱';
+      $('#eHint').textContent = '目前名稱：' + ED.cat + '。這個分類底下的 ' + DATA.items.filter(i => i.cat === ED.cat).length + ' 個品項、試算表分頁名稱都會一起改。';
+      $('#eCat').value = ED.cat;
+    } else {
+      $('#eTitle').textContent = '修改品項';
+      $('#eCatLbl').textContent = '分類（可改成別的分類，把品項移過去）';
+      $('#eHint').textContent = '編號 ' + it.id + '（不會變）・目前庫存 ' + fmtNum(it.stock) + ' ' + (it.unit || '');
+      $('#eCat').value = it.cat; $('#eName').value = it.name; $('#eSpec').value = it.spec || ''; $('#eUnit').value = it.unit || '';
+    }
+    $('#editBox').classList.add('show');
+    setTimeout(() => $(mode === 'cat' ? '#eCat' : '#eName').focus(), 50);
+  }
+  $('#eHead').onclick = e => { if (e.target.closest('[data-ecat]')) openEdit('cat'); };
+  $('#eList').onclick = e => { const b = e.target.closest('[data-eid]'); if (!b) return; openEdit('item', DATA.items.find(i => i.id === b.dataset.eid)); };
+  $('#eCancel').onclick = () => $('#editBox').classList.remove('show');
+  ['#eCat', '#eName', '#eSpec', '#eUnit'].forEach(i => $(i).addEventListener('input', () => $('#eErr').textContent = ''));
+  $('#eOk').onclick = async () => {
+    const cat = $('#eCat').value.trim(), name = $('#eName').value.trim();
+    if (!cat) { $('#eErr').textContent = '請輸入分類名稱'; return; }
+    if (EMODE.mode === 'item' && !name) { $('#eErr').textContent = '請輸入品項名稱'; return; }
+    const body = EMODE.mode === 'cat' ? { action: 'cat_rename', from: EMODE.from, to: cat }
+      : { action: 'item_edit', id: EMODE.id, cat, itemName: name, spec: $('#eSpec').value.trim(), unit: $('#eUnit').value.trim() };
+    const btn = $('#eOk'); btn.disabled = true; btn.textContent = '儲存中…';
+    try {
+      const r = await api(null, body);
+      $('#editBox').classList.remove('show');
+      // 登記頁正在選的分類／品項若被改名，跟著換成新名稱
+      if (EMODE.mode === 'cat') { if (S.cat === EMODE.from) S.cat = cat; ED.cat = cat; }
+      else { ED.cat = ED.q ? ED.cat : cat; if (S.item && S.item.id === EMODE.id) { S.cat = cat; S.name = name; } }
+      if (r.init) { applyData(Object.assign({}, DATA, r.init)); LS.set('data', DATA); syncedNow(); } else await load(true);
+      if (S.cat && !DATA.items.some(i => i.cat === S.cat)) { S.cat = ''; S.name = ''; S.item = null; }
+      if (S.name && !DATA.items.some(i => i.cat === S.cat && i.name === S.name)) { S.name = ''; S.item = null; }
+      HIST = null;
+      renderReg(); renderEdit();
+      toast('✓ ' + (r.msg || '已更新') + (r.logRows ? '，歷程 ' + r.logRows + ' 筆一起改' : ''), 'ok');
+    } catch (e) { if (e.message !== 'AUTH') $('#eErr').textContent = '⚠ ' + e.message; else $('#editBox').classList.remove('show'); }
+    finally { btn.disabled = false; btn.textContent = '儲存'; }
+  };
 
   // ---------- 啟動 ----------
   if (!API) {

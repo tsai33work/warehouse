@@ -131,6 +131,24 @@
   .cgroup{font-size:13px;font-weight:700;margin:12px 0 2px;padding:4px 10px;border-radius:8px;display:inline-block}
   .cgroup.out{background:var(--out-bg);color:var(--out)}
   .cgroup.in{background:var(--in-bg);color:var(--in)}
+  .acc-h{display:flex;align-items:center;font-size:16px;font-weight:700;cursor:pointer;user-select:none}
+  .acc-h .caret{margin-left:auto;color:var(--mute);font-size:13px;transition:.2s}
+  .acc-h.closed .caret{transform:rotate(-90deg)}
+  .srow{display:flex;align-items:center;gap:10px;background:#EAF1F8;border-radius:12px;padding:12px;margin-bottom:8px}
+  .srow.off{background:#F1F2F4;opacity:.75}
+  .srow .who{flex:1;min-width:0}
+  .srow .who b{font-size:16px;margin-right:6px;word-break:break-all}
+  .srow .who small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+  .sel{height:42px;border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:0 8px;font-size:15px;min-width:92px}
+  .pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle}
+  .pill.ok{background:#DFF3E6;color:#1E7A45}
+  .pill.wait{background:#FFF4D6;color:#8A6100}
+  .pill.off{background:#E4E6EA;color:#59616D}
+  .lnk{background:none;border:0;color:#B4541F;font-weight:700;font-size:14px;padding:6px 4px;white-space:nowrap}
+  .lnk.on{color:var(--in)}
+  .lnk.sure{background:var(--warn);color:#fff;border-radius:8px;padding:6px 8px}
+  .addrow{display:flex;align-items:flex-end;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .btn.addstaff{width:auto;padding:0 18px;height:48px;min-height:48px;background:var(--main);color:#fff;flex:none}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
 </head>
@@ -141,6 +159,7 @@
     <button data-tab="reg" class="on">登記</button>
     <button data-tab="hist">進出歷程</button>
     <button data-tab="stock">庫存</button>
+    <button data-tab="admin" class="hidden" id="navAdmin">設定</button>
   </nav>
 </header>
 
@@ -209,6 +228,23 @@
       <div class="row"><input class="t" id="s-q" placeholder="搜尋品項或編號…" autocomplete="off"></div>
     </div>
     <div id="s-list"></div>
+  </section>
+
+  <!-- 設定（管理者） -->
+  <section id="tab-admin" class="hidden">
+    <div class="card">
+      <div class="acc-h" id="accStaff">🔐 系統登入人員管理<span class="caret">▾</span></div>
+      <div id="accStaffBody">
+        <p class="hint" style="margin:10px 0 12px;line-height:1.6">在這裡新增同仁姓名與角色（會同步寫入試算表「人員」分頁）。同仁第一次登入時會自己設定 PIN；離職時按「停用」，就能立即收回登入權限。只有「管理者」看得到這個設定頁。</p>
+        <div id="staffList"><div class="loading"><div class="spinner"></div>讀取中…</div></div>
+        <div class="addrow">
+          <div><label class="f" style="margin-top:0">角色權限</label><select class="sel" id="newRole"></select></div>
+          <div style="flex:1;min-width:0"><label class="f" style="margin-top:0">新增人員姓名</label><input class="t" id="newName" placeholder="輸入同仁姓名，例：陳小明" autocomplete="off"></div>
+          <button class="btn addstaff" id="addStaff">＋ 新增人員</button>
+        </div>
+        <div class="err" id="staffErr" style="color:var(--warn);font-size:14px;margin-top:8px"></div>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -350,7 +386,8 @@
   $('#logoutBtn').onclick = () => {
     AUTH.name = ''; AUTH.pin = ''; LS.set('name', ''); LS.set('pin2', '');
     DATA = null; HIST = null; S.cart = []; $('#meBox').classList.add('hidden');
-    ['reg', 'hist', 'stock'].forEach(x => $('#tab-' + x).classList.add('hidden'));
+    ['reg', 'hist', 'stock', 'admin'].forEach(x => $('#tab-' + x).classList.add('hidden'));
+    $('#navAdmin').classList.add('hidden'); tab = 'reg';
     $('#submitbar').classList.add('hidden');
     showLogin('name');
   };
@@ -366,6 +403,8 @@
     try {
       DATA = await api({ action: 'init' });
       $('#meName').textContent = '👤 ' + DATA.me; $('#meBox').classList.remove('hidden');
+      $('#navAdmin').classList.toggle('hidden', !DATA.isAdmin);
+      if (!DATA.isAdmin && tab === 'admin') tab = 'reg';
       if (S.item) S.item = DATA.items.find(i => i.id === S.item.id) || null;
       $('#boot').classList.add('hidden');
       showTab(tab);
@@ -392,11 +431,12 @@
   function showTab(t){
     tab = t;
     document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-    ['reg', 'hist', 'stock'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== t || !DATA));
+    ['reg', 'hist', 'stock', 'admin'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== t || !DATA));
     $('#submitbar').classList.toggle('hidden', t !== 'reg' || !DATA);
     if (!DATA) return;
     if (t === 'hist') { HIST ? renderHist() : loadHist(); }
     if (t === 'stock') renderStock();
+    if (t === 'admin') loadStaff();
     window.scrollTo(0, 0);
   }
 
@@ -674,6 +714,54 @@
   $('#s-cat').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; ST.cat = b.dataset.v; renderStock(); };
   $('#s-flag').onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; ST.flag = b.dataset.f; renderStock(); };
   $('#s-q').oninput = e => { ST.q = e.target.value.trim(); renderStock(); };
+
+  // ---------- 設定：人員管理（管理者） ----------
+  let STAFF = [], ROLES = ['管理者', '老闆', '內業', '倉管', '現場'], SURE = null;
+  async function staffCall(body){
+    $('#staffErr').textContent = '';
+    try { const j = await api(null, body); STAFF = j.staff; ROLES = j.roles || ROLES; renderStaff(); return true; }
+    catch (e) { if (e.message !== 'AUTH') $('#staffErr').textContent = '⚠ ' + e.message; renderStaff(); return false; }
+  }
+  function loadStaff(){ return staffCall({ action: 'staff_list' }); }
+  function renderStaff(){
+    $('#newRole').innerHTML = ROLES.map(r => `<option${r === '現場' ? ' selected' : ''}>${esc(r)}</option>`).join('');
+    if (!STAFF.length) { $('#staffList').innerHTML = '<div class="empty">名單是空的</div>'; return; }
+    $('#staffList').innerHTML = STAFF.map((s, k) => {
+      const me = s.name === DATA.me;
+      const pill = !s.active ? '<span class="pill off">已停用</span>' : s.hasPin ? '<span class="pill ok">已設PIN</span>' : '<span class="pill wait">待首次登入設PIN</span>';
+      const sure = (a) => SURE === a + k;
+      return `<div class="srow${s.active ? '' : ' off'}">
+        <select class="sel" data-role="${k}"${s.active ? '' : ' disabled'}>${ROLES.map(r => `<option${r === s.role ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>
+        <div class="who"><b>${esc(s.name)}</b>${pill}${me ? ' <span class="pill ok" style="background:#E3ECF7;color:var(--main)">我</span>' : ''}
+          ${s.lastLogin ? `<small>最後登入：${esc(s.lastLogin)}</small>` : ''}</div>
+        ${s.active && s.hasPin ? `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>` : ''}
+        ${me ? '' : s.active ? `<button class="lnk${sure('d') ? ' sure' : ''}" data-off="${k}">${sure('d') ? '確定停用？' : '停用'}</button>`
+                             : `<button class="lnk on" data-on="${k}">啟用</button>`}
+      </div>`;
+    }).join('');
+  }
+  $('#accStaff').onclick = () => { $('#accStaff').classList.toggle('closed'); $('#accStaffBody').classList.toggle('hidden'); };
+  $('#staffList').addEventListener('change', e => {
+    const s = e.target.closest('[data-role]'); if (!s) return;
+    staffCall({ action: 'staff_role', target: STAFF[+s.dataset.role].name, role: s.value }).then(ok => ok && toast('已更新角色', 'ok'));
+  });
+  $('#staffList').addEventListener('click', e => {
+    const r = e.target.closest('[data-reset]'), d = e.target.closest('[data-off]'), o = e.target.closest('[data-on]');
+    if (r) { const k = r.dataset.reset; if (SURE !== 'r' + k) { SURE = 'r' + k; renderStaff(); setTimeout(() => { if (SURE === 'r' + k) { SURE = null; renderStaff(); } }, 4000); return; }
+      SURE = null; staffCall({ action: 'staff_resetpin', target: STAFF[+k].name }).then(ok => ok && toast('已重設，請他下次登入重新設定 PIN', 'ok')); }
+    if (d) { const k = d.dataset.off; if (SURE !== 'd' + k) { SURE = 'd' + k; renderStaff(); setTimeout(() => { if (SURE === 'd' + k) { SURE = null; renderStaff(); } }, 4000); return; }
+      SURE = null; staffCall({ action: 'staff_toggle', target: STAFF[+k].name, active: false }).then(ok => ok && toast('已停用', 'ok')); }
+    if (o) staffCall({ action: 'staff_toggle', target: STAFF[+o.dataset.on].name, active: true }).then(ok => ok && toast('已重新啟用', 'ok'));
+  });
+  $('#addStaff').onclick = async () => {
+    const name = $('#newName').value.trim();
+    if (!name) { $('#staffErr').textContent = '請輸入姓名'; return; }
+    const btn = $('#addStaff'); btn.disabled = true;
+    const ok = await staffCall({ action: 'staff_add', newName: name, role: $('#newRole').value });
+    btn.disabled = false;
+    if (ok) { $('#newName').value = ''; toast('已新增 ' + name, 'ok'); }
+  };
+  $('#newName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#addStaff').click(); });
 
   // ---------- 啟動 ----------
   if (!API) {

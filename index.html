@@ -851,8 +851,9 @@
           ${s.lastLogin ? `<small>最後登入：${esc(s.lastLogin)}</small>` : ''}</div>
         <div class="sbtns">
           <div class="seg">
-            <button class="sg${s.active ? ' act-on' : ''}" ${s.active ? 'disabled' : `data-on="${k}"`}>啟用</button>
-            <button class="sg${!s.active ? ' act-off' : ''}${sure('d') ? ' sure' : ''}" ${!s.active || me ? 'disabled' : `data-off="${k}"`}>${sure('d') ? '確定？' : '停用'}</button>
+            ${s.active
+              ? `<button class="sg act-on${sure('d') ? ' sure' : ''}" ${me ? 'disabled' : `data-off="${k}"`} title="點一下改為停用">${sure('d') ? '確定停用？' : '啟用'}</button>`
+              : `<button class="sg act-off" data-on="${k}" title="點一下改為啟用">停用</button>`}
           </div>
           ${s.active && s.hasPin ? `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>` : ''}
         </div>

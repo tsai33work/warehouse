@@ -135,7 +135,7 @@
   .acc-h .caret{margin-left:auto;color:var(--mute);font-size:13px;transition:.2s}
   .acc-h.closed .caret{transform:rotate(-90deg)}
   .srow{display:flex;align-items:center;gap:10px;background:#EAF1F8;border-radius:12px;padding:12px;margin-bottom:8px}
-  .srow.off{background:#F1F2F4;opacity:.75}
+  .srow.off{background:#F1F2F4}
   .srow .who{flex:1;min-width:0}
   .srow .who b{font-size:16px;margin-right:6px;word-break:break-all}
   .srow .who small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
@@ -143,10 +143,16 @@
   .pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle}
   .pill.ok{background:#DFF3E6;color:#1E7A45}
   .pill.wait{background:#FFF4D6;color:#8A6100}
-  .pill.off{background:#E4E6EA;color:#59616D}
-  .lnk{background:none;border:0;color:#B4541F;font-weight:700;font-size:14px;padding:6px 4px;white-space:nowrap}
-  .lnk.on{color:var(--in)}
-  .lnk.sure{background:var(--warn);color:#fff;border-radius:8px;padding:6px 8px}
+  .pill.off{background:#FDE6D4;color:#B4541F}
+  .lnk{background:#fff;border:1.5px solid #B4541F;color:#B4541F;font-weight:700;font-size:14px;padding:7px 12px;border-radius:10px;white-space:nowrap;flex:none}
+  .lnk.on{background:var(--main);border-color:var(--main);color:#fff}
+  .lnk.sure{background:var(--warn);border-color:var(--warn);color:#fff}
+  .sbtns{display:flex;flex-direction:column;gap:6px;flex:none}
+  .pill{white-space:nowrap}
+  .srow .sel{min-width:0;width:86px;padding:0 4px}
+  .xdel{background:none;border:0;color:#B4541F;font-size:22px;line-height:1;width:28px;height:36px;flex:none;padding:0}
+  .xdel.sure{background:var(--warn);color:#fff;border-radius:8px;font-size:12px;width:auto;padding:0 6px;font-weight:700}
+  .xdel.ghost{visibility:hidden}
   .addrow{display:flex;align-items:flex-end;gap:10px;margin-top:14px;flex-wrap:wrap}
   .btn.addstaff{width:auto;padding:0 18px;height:48px;min-height:48px;background:var(--main);color:#fff;flex:none}
   .chip.add{border-style:dashed;border-color:#9DB6D3;color:var(--main);background:#F4F8FC;font-weight:600}
@@ -236,7 +242,7 @@
     <div class="card">
       <div class="acc-h" id="accStaff">🔐 系統登入人員管理<span class="caret">▾</span></div>
       <div id="accStaffBody">
-        <p class="hint" style="margin:10px 0 12px;line-height:1.6">在這裡新增同仁姓名與角色（會同步寫入試算表「人員」分頁）。同仁第一次登入時會自己設定 PIN；離職時按「停用」，就能立即收回登入權限。只有「管理者」看得到這個設定頁。</p>
+        <p class="hint" style="margin:10px 0 12px;line-height:1.6">在這裡新增同仁姓名與角色（會同步寫入試算表「人員」分頁）。同仁第一次登入時會自己設定 PIN；離職時按「停用」可立即收回登入權限，按最左邊「✕」則是從名單移除（過去的進出紀錄仍保留）。只有「管理者」看得到這個設定頁。</p>
         <div id="staffList"><div class="loading"><div class="spinner"></div>讀取中…</div></div>
         <div class="addrow">
           <div><label class="f" style="margin-top:0">角色權限</label><select class="sel" id="newRole"></select></div>
@@ -785,12 +791,13 @@
       const pill = !s.active ? '<span class="pill off">已停用</span>' : s.hasPin ? '<span class="pill ok">已設PIN</span>' : '<span class="pill wait">待首次登入設PIN</span>';
       const sure = (a) => SURE === a + k;
       return `<div class="srow${s.active ? '' : ' off'}">
+        <button class="xdel${me ? ' ghost' : ''}${sure('x') ? ' sure' : ''}" data-del-staff="${k}" aria-label="移除">${sure('x') ? '確定移除？' : '✕'}</button>
         <select class="sel" data-role="${k}"${s.active ? '' : ' disabled'}>${ROLES.map(r => `<option${r === s.role ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>
         <div class="who"><b>${esc(s.name)}</b>${pill}${me ? ' <span class="pill ok" style="background:#E3ECF7;color:var(--main)">我</span>' : ''}
           ${s.lastLogin ? `<small>最後登入：${esc(s.lastLogin)}</small>` : ''}</div>
-        ${s.active && s.hasPin ? `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>` : ''}
+        <div class="sbtns">${s.active && s.hasPin ? `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>` : ''}
         ${me ? '' : s.active ? `<button class="lnk${sure('d') ? ' sure' : ''}" data-off="${k}">${sure('d') ? '確定停用？' : '停用'}</button>`
-                             : `<button class="lnk on" data-on="${k}">啟用</button>`}
+                             : `<button class="lnk on" data-on="${k}">啟用</button>`}</div>
       </div>`;
     }).join('');
   }
@@ -800,7 +807,10 @@
     staffCall({ action: 'staff_role', target: STAFF[+s.dataset.role].name, role: s.value }).then(ok => ok && toast('已更新角色', 'ok'));
   });
   $('#staffList').addEventListener('click', e => {
-    const r = e.target.closest('[data-reset]'), d = e.target.closest('[data-off]'), o = e.target.closest('[data-on]');
+    const r = e.target.closest('[data-reset]'), d = e.target.closest('[data-off]'), o = e.target.closest('[data-on]'), x = e.target.closest('[data-del-staff]');
+    if (x) { const k = x.dataset.delStaff; if (STAFF[+k].name === DATA.me) return;
+      if (SURE !== 'x' + k) { SURE = 'x' + k; renderStaff(); setTimeout(() => { if (SURE === 'x' + k) { SURE = null; renderStaff(); } }, 4000); return; }
+      SURE = null; const nm = STAFF[+k].name; staffCall({ action: 'staff_delete', target: nm }).then(ok => ok && toast('已移除 ' + nm, 'ok')); }
     if (r) { const k = r.dataset.reset; if (SURE !== 'r' + k) { SURE = 'r' + k; renderStaff(); setTimeout(() => { if (SURE === 'r' + k) { SURE = null; renderStaff(); } }, 4000); return; }
       SURE = null; staffCall({ action: 'staff_resetpin', target: STAFF[+k].name }).then(ok => ok && toast('已重設，請他下次登入重新設定 PIN', 'ok')); }
     if (d) { const k = d.dataset.off; if (SURE !== 'd' + k) { SURE = 'd' + k; renderStaff(); setTimeout(() => { if (SURE === 'd' + k) { SURE = null; renderStaff(); } }, 4000); return; }

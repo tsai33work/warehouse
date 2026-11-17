@@ -149,6 +149,7 @@
   .lnk.sure{background:var(--warn);color:#fff;border-radius:8px;padding:6px 8px}
   .addrow{display:flex;align-items:flex-end;gap:10px;margin-top:14px;flex-wrap:wrap}
   .btn.addstaff{width:auto;padding:0 18px;height:48px;min-height:48px;background:var(--main);color:#fff;flex:none}
+  .chip.add{border-style:dashed;border-color:#9DB6D3;color:var(--main);background:#F4F8FC;font-weight:600}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
 </head>
@@ -285,6 +286,20 @@
     <button class="btn ghost" id="cBack">返回修改</button>
     <button class="btn primary" id="cOk">確認送出</button>
   </div>
+</div></div>
+
+<div class="overlay" id="itemBox"><div class="dialog">
+  <h2 id="iTitle">新增品項</h2>
+  <p id="iHint"></p>
+  <div id="iCatRow"><label class="f">分類</label><input class="t" id="iCat" placeholder="例：測量儀器" autocomplete="off"></div>
+  <div id="iNameRow"><label class="f">品項名稱</label><input class="t" id="iName" placeholder="例：雷射水平儀" autocomplete="off"></div>
+  <div id="iSpecRow"><label class="f" id="iSpecLbl">規格／尺寸（可不填）</label><input class="t" id="iSpec" placeholder="例：120×80、4吋" autocomplete="off"></div>
+  <div style="display:flex;gap:10px">
+    <div style="flex:1"><label class="f">單位（可不填）</label><input class="t" id="iUnit" placeholder="支、台、個…" autocomplete="off"></div>
+    <div style="flex:1"><label class="f">目前倉庫數量</label><input class="t" id="iInit" type="number" inputmode="decimal" min="0" value="0"></div>
+  </div>
+  <div class="err" id="iErr" style="margin-top:10px"></div>
+  <div class="btnrow"><button class="btn ghost" id="iCancel">取消</button><button class="btn primary" id="iOk">新增</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -454,7 +469,8 @@
 
   function renderReg(){
 
-    $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, pfSpan(c))).join('');
+    const addChip = (mode, label) => DATA.canEditItems ? `<button class="chip add" data-add="${mode}">＋ ${label}</button>` : '';
+    $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, pfSpan(c))).join('') + addChip('cat', '新增分類');
     $('#v-cat').textContent = S.cat;
 
     const inCat = DATA.items.filter(i => i.cat === S.cat);
@@ -463,12 +479,12 @@
     $('#names').innerHTML = names.map(n => {
       const c = inCat.filter(i => i.name === n).length;
       return chip(n, S.name === n, `data-name="${esc(n)}"`) .replace('</button>', c > 1 ? `<small>${c} 種</small></button>` : '</button>');
-    }).join('');
+    }).join('') + addChip('name', '新增品項');
     $('#v-name').textContent = S.name;
 
     const specs = inCat.filter(i => i.name === S.name);
     $('#card-spec').classList.toggle('hidden', !S.name);
-    $('#specs').innerHTML = specs.map(i => chip(specLabel(i.spec), S.item && S.item.id === i.id, `data-id="${esc(i.id)}"`)).join('');
+    $('#specs').innerHTML = specs.map(i => chip(specLabel(i.spec), S.item && S.item.id === i.id, `data-id="${esc(i.id)}"`)).join('') + addChip('spec', '新增規格');
     $('#v-spec').textContent = S.item ? S.item.id : '';
 
     $('#card-qty').classList.toggle('hidden', !S.item);
@@ -490,6 +506,7 @@
     renderCart();
   }
 
+  ['#cats', '#names', '#specs'].forEach(s => $(s).addEventListener('click', e => { const a = e.target.closest('[data-add]'); if (a) openItemBox(a.dataset.add); }));
   $('#cats').onclick = e => {
     const b = e.target.closest('[data-cat]'); if (!b) return;
     S.cat = b.dataset.cat; S.name = ''; S.item = null; renderReg();
@@ -714,6 +731,43 @@
   $('#s-cat').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; ST.cat = b.dataset.v; renderStock(); };
   $('#s-flag').onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; ST.flag = b.dataset.f; renderStock(); };
   $('#s-q').oninput = e => { ST.q = e.target.value.trim(); renderStock(); };
+
+  // ---------- 新增 分類／品項／規格 ----------
+  let IMODE = '';
+  function openItemBox(mode){
+    IMODE = mode;
+    const show = (id, on) => $(id).classList.toggle('hidden', !on);
+    $('#iTitle').textContent = { cat: '新增分類', name: '新增品項', spec: '新增規格' }[mode];
+    $('#iHint').textContent = mode === 'cat' ? '新分類至少要有一個品項。新增後，試算表會自動多一個這個分類的分頁。'
+      : mode === 'name' ? '分類：' + S.cat : '分類：' + S.cat + '　品項：' + S.name;
+    show('#iCatRow', mode === 'cat'); show('#iNameRow', mode !== 'spec');
+    $('#iSpecLbl').textContent = mode === 'spec' ? '規格／尺寸' : '規格／尺寸（可不填）';
+    ['#iCat', '#iName', '#iSpec', '#iUnit'].forEach(i => $(i).value = '');
+    $('#iInit').value = 0; $('#iErr').textContent = '';
+    if (mode === 'spec') { const sib = DATA.items.find(i => i.cat === S.cat && i.name === S.name && i.unit); if (sib) $('#iUnit').value = sib.unit; }
+    $('#itemBox').classList.add('show');
+    setTimeout(() => $(mode === 'cat' ? '#iCat' : mode === 'name' ? '#iName' : '#iSpec').focus(), 50);
+  }
+  $('#iCancel').onclick = () => $('#itemBox').classList.remove('show');
+  ['#iCat', '#iName', '#iSpec'].forEach(i => $(i).addEventListener('input', () => $('#iErr').textContent = ''));
+  $('#iOk').onclick = async () => {
+    const cat = IMODE === 'cat' ? $('#iCat').value.trim() : S.cat;
+    const name = IMODE === 'spec' ? S.name : $('#iName').value.trim();
+    const spec = $('#iSpec').value.trim();
+    if (!cat) { $('#iErr').textContent = '請輸入分類'; return; }
+    if (!name) { $('#iErr').textContent = '請輸入品項名稱'; return; }
+    if (IMODE === 'spec' && !spec) { $('#iErr').textContent = '請輸入規格／尺寸'; return; }
+    const btn = $('#iOk'); btn.disabled = true; btn.textContent = '新增中…';
+    try {
+      const r = await api(null, { action: 'item_add', cat, itemName: name, spec, unit: $('#iUnit').value.trim(), init: $('#iInit').value });
+      $('#itemBox').classList.remove('show');
+      toast('已新增 ' + name + (spec ? '（' + spec + '）' : '') + '・' + r.id, 'ok');
+      await load(true);
+      S.cat = cat; S.name = name; S.item = DATA.items.find(i => i.id === r.id) || null; $('#qty').value = 1;
+      renderReg(); scrollToCard('#card-qty');
+    } catch (e) { if (e.message !== 'AUTH') $('#iErr').textContent = '⚠ ' + e.message; else $('#itemBox').classList.remove('show'); }
+    finally { btn.disabled = false; btn.textContent = '新增'; }
+  };
 
   // ---------- 設定：人員管理（管理者） ----------
   let STAFF = [], ROLES = ['管理者', '老闆', '工務部', '工程部'], SURE = null;

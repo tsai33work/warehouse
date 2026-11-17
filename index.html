@@ -125,6 +125,12 @@
   .btnrow{display:flex;gap:10px}
   .btnrow .btn{flex:1}
   .capnote{color:var(--out);font-size:13px;margin-top:6px}
+  .btn.addout{background:var(--out);color:#fff}
+  .btn.addin{background:var(--in);color:#fff}
+  .btn.addout:disabled{background:#E8C3B0}
+  .cgroup{font-size:13px;font-weight:700;margin:12px 0 2px;padding:4px 10px;border-radius:8px;display:inline-block}
+  .cgroup.out{background:var(--out-bg);color:var(--out)}
+  .cgroup.in{background:var(--in-bg);color:var(--in)}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
 </head>
@@ -144,26 +150,19 @@
   <!-- 登記 -->
   <section id="tab-reg" class="hidden">
     <div class="card">
-      <div class="step"><span class="n">1</span>進／出</div>
-      <div class="grid2">
-        <button class="dirbtn out" data-dir="出">出<span>領出</span></button>
-        <button class="dirbtn in" data-dir="進">進<span>入庫／歸還</span></button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="step"><span class="n">2</span>貨品大項<span class="val" id="v-cat"></span></div>
+      <div class="step"><span class="n">1</span>貨品大項<span class="val" id="v-cat"></span></div>
       <div class="chips" id="cats"></div>
     </div>
     <div class="card hidden" id="card-name">
-      <div class="step"><span class="n">3</span>細項<span class="val" id="v-name"></span></div>
+      <div class="step"><span class="n">2</span>細項<span class="val" id="v-name"></span></div>
       <div class="chips" id="names"></div>
     </div>
     <div class="card hidden" id="card-spec">
-      <div class="step"><span class="n">4</span>名稱（規格）<span class="val" id="v-spec"></span></div>
+      <div class="step"><span class="n">3</span>名稱（規格）<span class="val" id="v-spec"></span></div>
       <div class="chips" id="specs"></div>
     </div>
     <div class="card hidden" id="card-qty">
-      <div class="step"><span class="n">5</span>數量<span class="val" id="v-unit"></span></div>
+      <div class="step"><span class="n">4</span>數量<span class="val" id="v-unit"></span></div>
       <div class="qty">
         <button class="pm" id="minus" aria-label="減少">−</button>
         <input id="qty" type="number" inputmode="decimal" min="0" step="any" value="1">
@@ -175,12 +174,12 @@
       <div class="stockline" id="stockline"></div>
       <div class="capnote hidden" id="capnote"></div>
       <div style="height:12px"></div>
-      <button class="btn ghost" id="addBtn">＋ 加入清單</button>
+      <div class="grid2"><button class="btn addout" id="addOut">＋ 加入出庫</button><button class="btn addin" id="addIn">＋ 加入入庫</button></div>
     </div>
 
     <div class="card" id="card-cart">
       <div class="step">登記清單<span class="val" id="v-cart">尚未加入品項</span></div>
-      <div id="cart"><div class="empty">選好品項與數量後，按「加入清單」。<br>可以一次加入不同大項的多個品項。</div></div>
+      <div id="cart"><div class="empty">選好品項與數量後，按「加入出庫」或「加入入庫」。<br>出庫、入庫可以混在同一張清單一起送出。</div></div>
       <label class="f" for="site">工地／用途（可不填）</label>
       <input class="t" id="site" placeholder="例：淡水河金色水岸" autocomplete="off">
       <div class="sites" id="sites"></div>
@@ -267,7 +266,7 @@
   if (CFG.TITLE) { $('#title').textContent = CFG.TITLE; document.title = CFG.TITLE; }
 
   let DATA = null, HIST = null;
-  const S = { dir: '', cat: '', name: '', item: null, cart: [] };
+  const S = { cat: '', name: '', item: null, cart: [] };
   const H = { range: '7', dir: '全部', who: '全部', cat: '全部', q: '' };
   const ST = { cat: '全部', flag: '全部', q: '' };
   let tab = 'reg';
@@ -414,7 +413,6 @@
   const specLabel = s => s || '（無規格）';
 
   function renderReg(){
-    document.querySelectorAll('.dirbtn').forEach(b => b.classList.toggle('on', b.dataset.dir === S.dir));
 
     $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, pfSpan(c))).join('');
     $('#v-cat').textContent = S.cat;
@@ -441,19 +439,17 @@
         (S.item.alert ? ' <span class="tag warn">' + esc(S.item.alert) + '</span>' : '');
       const mx = capFor(S.item);
       const cn = $('#capnote');
-      if (mx == null) { cn.classList.add('hidden'); $('#addBtn').disabled = false; }
+      if (mx == null) { cn.classList.add('hidden'); $('#addOut').disabled = false; }
       else {
         cn.classList.remove('hidden');
-        cn.textContent = mx > 0 ? '出庫最多 ' + fmtNum(mx) + ' ' + (S.item.unit || '') + (inCart(S.item.id) ? '（清單裡已有 ' + fmtNum(inCart(S.item.id)) + '）' : '')
-                                : '⚠ 庫存不足，無法再出庫';
-        $('#addBtn').disabled = mx <= 0;
-        setQty(getQty());
+        cn.textContent = mx > 0 ? '出庫最多 ' + fmtNum(mx) + ' ' + (S.item.unit || '') + (inCart(S.item.id, '出') ? '（清單裡已出 ' + fmtNum(inCart(S.item.id, '出')) + '）' : '')
+                                : '⚠ 庫存不足，無法出庫（仍可入庫）';
+        $('#addOut').disabled = mx <= 0;
       }
     }
     renderCart();
   }
 
-  document.querySelectorAll('.dirbtn').forEach(b => b.onclick = () => { S.dir = b.dataset.dir; renderReg(); });
   $('#cats').onclick = e => {
     const b = e.target.closest('[data-cat]'); if (!b) return;
     S.cat = b.dataset.cat; S.name = ''; S.item = null; renderReg();
@@ -475,16 +471,14 @@
   function scrollToCard(sel){ setTimeout(() => { const el = $(sel); if (el && !el.classList.contains('hidden')) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 30); }
 
   const getQty = () => { const v = parseFloat($('#qty').value); return isFinite(v) ? v : 0; };
-  const inCart = id => S.cart.filter(c => c.id === id).reduce((a, c) => a + c.qty, 0);
+  const inCart = (id, dir) => S.cart.filter(c => c.id === id && c.dir === dir).reduce((a, c) => a + c.qty, 0);
   // 出庫上限：期初已盤點的品項才限制；回傳 null 表示不限制
   function capFor(it, excludeCart){
-    if (S.dir !== '出' || !it || !it.counted || it.stock == null) return null;
-    return Math.max(0, it.stock - (excludeCart ? 0 : inCart(it.id)));
+    if (!it || !it.counted || it.stock == null) return null;
+    return Math.max(0, it.stock - (excludeCart ? 0 : inCart(it.id, '出')));
   }
   function setQty(v){
     let q = Number(v); if (!isFinite(q) || q < 1) q = 1;
-    const mx = capFor(S.item);
-    if (mx != null && q > mx) { q = Math.max(mx, 0); if (mx > 0) toast('出庫最多 ' + fmtNum(mx) + '，已自動調整', ''); }
     $('#qty').value = q;
   }
   $('#minus').onclick = () => setQty(getQty() - 1);
@@ -492,52 +486,56 @@
   $('#quick').onclick = e => { const b = e.target.closest('[data-q]'); if (b) setQty(b.dataset.q); };
   $('#qty').addEventListener('change', () => setQty(getQty()));
 
-  $('#addBtn').onclick = () => {
-    const q = getQty();
+  function addLine(dir){
+    let q = getQty();
     if (!S.item) return;
     if (!(q > 0)) { toast('數量要大於 0', 'err'); return; }
-    const mx = capFor(S.item);
-    if (mx != null && q > mx) { toast('庫存不足，最多只能出 ' + fmtNum(mx), 'err'); setQty(q); return; }
-    const ex = S.cart.find(c => c.id === S.item.id);
-    if (ex) ex.qty += q; else S.cart.push({ id: S.item.id, qty: q });
-    toast('已加入：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + q, 'ok');
+    if (dir === '出') {
+      const mx = capFor(S.item);
+      if (mx != null && mx <= 0) { toast('庫存不足，無法出庫', 'err'); return; }
+      if (mx != null && q > mx) { q = mx; toast('出庫最多 ' + fmtNum(mx) + '，已自動調整為 ' + fmtNum(mx), ''); }
+    }
+    const ex = S.cart.find(c => c.id === S.item.id && c.dir === dir);
+    if (ex) ex.qty += q; else S.cart.push({ id: S.item.id, qty: q, dir });
+    toast('已加入' + (dir === '出' ? '出庫' : '入庫') + '：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + fmtNum(q), 'ok');
     S.name = ''; S.item = null; $('#qty').value = 1;
     renderReg();
     scrollToCard('#card-cart');
-  };
+  }
+  $('#addOut').onclick = () => addLine('出');
+  $('#addIn').onclick = () => addLine('進');
 
   function renderCart(){
     const box = $('#cart');
     if (!S.cart.length) {
-      box.innerHTML = '<div class="empty">選好品項與數量後，按「加入清單」。<br>可以一次加入不同大項的多個品項。</div>';
+      box.innerHTML = '<div class="empty">選好品項與數量後，按「加入出庫」或「加入入庫」。<br>出庫、入庫可以混在同一張清單一起送出。</div>';
       $('#v-cart').textContent = '尚未加入品項';
     } else {
       box.innerHTML = S.cart.map((c, k) => {
         const it = DATA.items.find(i => i.id === c.id) || { name: c.id, spec: '', unit: '' };
-        const over = S.dir === '出' && it.stock != null && c.qty > it.stock;
-        return `<div class="cart-item"><div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
+        const over = c.dir === '出' && it.counted && it.stock != null && c.qty > it.stock;
+        return `<div class="cart-item"><div class="t"><b><span class="tag ${c.dir === '出' ? 'out' : 'in'}">${c.dir}</span> ${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
           <small>${esc(it.id)}・${esc(it.cat || '')}</small>${over ? ' <span class="tag warn">超過帳面庫存 ' + fmtNum(it.stock) + '</span>' : ''}</div>
-          <div class="q">${fmtNum(c.qty)} <small>${esc(it.unit || '')}</small></div>
+          <div class="q" style="color:${c.dir === '出' ? 'var(--out)' : 'var(--in)'}">${c.dir === '出' ? '−' : '+'}${fmtNum(c.qty)} <small>${esc(it.unit || '')}</small></div>
           <button class="x" data-del="${k}" aria-label="刪除">×</button></div>`;
       }).join('');
       $('#v-cart').textContent = S.cart.length + ' 項';
     }
     $('#sites').innerHTML = (DATA.sites || []).slice(0, 8).map(s => chip(s, false, `data-site="${esc(s)}"`)).join('');
     const btn = $('#submitBtn');
-    const miss = !S.dir ? '請選進或出' : !S.cart.length ? '請加入品項' : '';
+    const miss = !S.cart.length ? '請加入品項' : '';
     btn.disabled = !!miss;
-    btn.textContent = miss || `送出登記（${S.dir}・${S.cart.length} 項）→ 確認`;
-    btn.style.background = miss ? '' : (S.dir === '出' ? 'var(--out)' : 'var(--in)');
-    btn.style.color = miss ? '' : '#fff';
+    btn.textContent = miss || `送出登記（${cartLabel()}）→ 確認`;
   }
   $('#cart').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; S.cart.splice(Number(b.dataset.del), 1); renderCart(); };
   $('#sites').onclick = e => { const b = e.target.closest('[data-site]'); if (b) $('#site').value = b.dataset.site; };
 
+  const cartLabel = () => { const o = S.cart.filter(c => c.dir === '出').length, i = S.cart.length - o; return [o ? '出 ' + o + ' 項' : '', i ? '進 ' + i + ' 項' : ''].filter(Boolean).join('・'); };
   // ---------- 送出前確認 ----------
   const itemOf = id => DATA.items.find(i => i.id === id) || { id, name: id, spec: '', unit: '', cat: '' };
   function openConfirm(){
     // 進/出 若在加入後才切換成「出」，這裡再統一套用上限
-    S.cart.forEach(c => { const mx = capFor(itemOf(c.id), true); if (mx != null && c.qty > mx) c.qty = mx; });
+    S.cart.forEach(c => { if (c.dir !== '出') return; const mx = capFor(itemOf(c.id), true); if (mx != null && c.qty > mx) c.qty = mx; });
     S.cart = S.cart.filter(c => c.qty > 0);
     if (!S.cart.length) { toast('清單裡的品項庫存不足，已移除', 'err'); renderCart(); return; }
     $('#cErr').textContent = '';
@@ -546,25 +544,31 @@
   }
   function renderConfirm(){
     const site = $('#site').value.trim(), note = $('#note').value.trim();
-    $('#cSum').innerHTML = `登記人：<b>${esc(DATA.me)}</b>　<span class="tag ${S.dir === '出' ? 'out' : 'in'}">${esc(S.dir)}</span>` +
+    $('#cSum').innerHTML = `登記人：<b>${esc(DATA.me)}</b>` +
       (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '');
-    $('#cList').innerHTML = S.cart.map((c, k) => {
-      const it = itemOf(c.id), mx = capFor(it, true);
+    const row = (c, k) => {
+      const it = itemOf(c.id), mx = c.dir === '出' ? capFor(it, true) : null;
       return `<div class="crow"><div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
         <small>${mx != null ? '最多 ' + fmtNum(mx) + ' ' + esc(it.unit || '') : esc(it.unit || '')}</small></div>
         <div class="mini"><button data-m="${k}" aria-label="減少">−</button>
         <input data-i="${k}" type="number" inputmode="decimal" value="${c.qty}">
         <button data-p="${k}" aria-label="增加">＋</button></div>
         <button class="x" data-del="${k}" aria-label="刪除" style="border:0;background:var(--bg);width:32px;height:32px;border-radius:50%;color:var(--mute)">×</button></div>`;
-    }).join('');
+    };
+    let html = '';
+    [['出', '出庫（領出）', 'out'], ['進', '入庫（進貨／歸還）', 'in']].forEach(([d, label, cls]) => {
+      const rows = S.cart.map((c, k) => [c, k]).filter(([c]) => c.dir === d);
+      if (rows.length) html += `<div class="cgroup ${cls}">${label}・${rows.length} 項</div>` + rows.map(([c, k]) => row(c, k)).join('');
+    });
+    $('#cList').innerHTML = html;
     const ok = $('#cOk');
-    ok.textContent = `確認送出（${S.dir}・${S.cart.length} 項）`;
-    ok.style.background = S.dir === '出' ? 'var(--out)' : 'var(--in)'; ok.style.color = '#fff';
+    ok.textContent = `確認送出（${cartLabel()}）`;
+    ok.style.background = 'var(--main)'; ok.style.color = '#fff';
   }
   function setCartQty(k, v){
     const c = S.cart[k]; if (!c) return;
     let q = Number(v); if (!isFinite(q) || q < 1) q = 1;
-    const mx = capFor(itemOf(c.id), true);
+    const mx = c.dir === '出' ? capFor(itemOf(c.id), true) : null;
     if (mx != null && q > mx) { q = mx; $('#cErr').textContent = itemOf(c.id).name + ' 最多只能出 ' + fmtNum(mx); }
     else $('#cErr').textContent = '';
     c.qty = q;
@@ -586,10 +590,10 @@
     if (btn.disabled) return;
     btn.disabled = true; btn.textContent = '送出中…';
     try {
-      const r = await api(null, { dir: S.dir, site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
+      const r = await api(null, { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
       $('#confirmBox').classList.remove('show');
       toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
-      S.cart = []; S.dir = ''; S.cat = ''; S.name = ''; S.item = null;
+      S.cart = []; S.cat = ''; S.name = ''; S.item = null;
       $('#note').value = ''; $('#site').value = '';
       HIST = null;
       await load(true);

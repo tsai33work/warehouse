@@ -173,8 +173,11 @@
   .ph.add{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #9DB6D3;background:#F4F8FC;color:var(--main);font-size:13px;font-weight:700;cursor:pointer}
   .ph.add span{font-size:26px;line-height:1.1}
   .ph.add.need{border-color:var(--warn);color:var(--warn);background:#FDF2F1}
-  .cphotos{display:flex;gap:6px;margin-top:8px}
-  .cphotos img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+  .lph{width:52px;height:52px;flex:none;border-radius:10px;overflow:hidden;border:0;padding:0;background:#E9EDF2;position:relative}
+  .lph img{width:100%;height:100%;object-fit:cover;display:block}
+  .lph.need{border:2px dashed var(--warn);background:#FDF2F1;color:var(--warn);font-size:11px;font-weight:700;line-height:1.2}
+  .lph.need span{display:block;font-size:20px}
+  .crow .lph{width:44px;height:44px}
   .hist .meta a{color:var(--main);font-weight:600;text-decoration:none}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
@@ -231,8 +234,6 @@
       <div class="sites" id="sites"></div>
       <label class="f" for="note">備註（可不填）</label>
       <input class="t" id="note" placeholder="損壞、借用對象等" autocomplete="off">
-      <label class="f">現場照片 <b style="color:var(--warn)">＊必拍</b>（最多 3 張）</label>
-      <div class="photos" id="photos"></div>
       <input type="file" id="photoIn" accept="image/*" capture="environment" class="hidden">
     </div>
   </section>
@@ -346,7 +347,7 @@
   if (CFG.TITLE) { $('#title').textContent = CFG.TITLE; document.title = CFG.TITLE; }
 
   let DATA = null, HIST = null;
-  const S = { cat: '', name: '', item: null, cart: [], photos: [] };
+  const S = { cat: '', name: '', item: null, cart: [] };
   const H = { range: '7', dir: '全部', who: '全部', cat: '全部', q: '' };
   const ST = { cat: '全部', flag: '全部', q: '' };
   let tab = 'reg';
@@ -431,7 +432,7 @@
   };
   $('#logoutBtn').onclick = () => {
     AUTH.name = ''; AUTH.pin = ''; LS.set('name', ''); LS.set('pin2', '');
-    DATA = null; HIST = null; SHOWN = false; S.cart = []; S.photos = []; LS.set('data', null); $('#meBox').classList.add('hidden');
+    DATA = null; HIST = null; SHOWN = false; S.cart = []; LS.set('data', null); $('#meBox').classList.add('hidden');
     ['reg', 'hist', 'stock', 'admin'].forEach(x => $('#tab-' + x).classList.add('hidden'));
     $('#navAdmin').classList.add('hidden'); tab = 'reg';
     $('#submitbar').classList.add('hidden');
@@ -594,9 +595,10 @@
       if (mx != null && mx <= 0) { toast('庫存不足，無法出庫', 'err'); return; }
       if (mx != null && q > mx) { q = mx; toast('出庫最多 ' + fmtNum(mx) + '，已自動調整為 ' + fmtNum(mx), ''); }
     }
-    const ex = S.cart.find(c => c.id === S.item.id && c.dir === dir);
-    if (ex) ex.qty += q; else S.cart.push({ id: S.item.id, qty: q, dir });
-    toast('已加入' + (dir === '出' ? '出庫' : '入庫') + '：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + fmtNum(q), 'ok');
+    let ex = S.cart.find(c => c.id === S.item.id && c.dir === dir);
+    if (ex) ex.qty += q; else { ex = { id: S.item.id, qty: q, dir, photo: '' }; S.cart.push(ex); }
+    toast('已加入' + (dir === '出' ? '出庫' : '入庫') + '：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + fmtNum(q) + (ex.photo ? '' : '，請拍照'), 'ok');
+    if (!ex.photo) askPhoto(S.cart.indexOf(ex));   // 每一項物品都要一張照片，加入後直接開相機
     S.name = ''; S.item = null; $('#qty').value = 1;
     renderReg();
     scrollToCard('#card-cart');
@@ -613,7 +615,7 @@
       box.innerHTML = S.cart.map((c, k) => {
         const it = DATA.items.find(i => i.id === c.id) || { name: c.id, spec: '', unit: '' };
         const over = c.dir === '出' && it.counted && it.stock != null && c.qty > it.stock;
-        return `<div class="cart-item"><div class="t"><b><span class="tag ${c.dir === '出' ? 'out' : 'in'}">${c.dir}</span> ${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
+        return `<div class="cart-item">${phBtn(c, k)}<div class="t"><b><span class="tag ${c.dir === '出' ? 'out' : 'in'}">${c.dir}</span> ${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
           <small>${esc(it.id)}・${esc(it.cat || '')}</small>${over ? ' <span class="tag warn">超過帳面庫存 ' + fmtNum(it.stock) + '</span>' : ''}</div>
           <div class="q" style="color:${c.dir === '出' ? 'var(--out)' : 'var(--in)'}">${c.dir === '出' ? '−' : '+'}${fmtNum(c.qty)} <small>${esc(it.unit || '')}</small></div>
           <button class="x" data-del="${k}" aria-label="刪除">×</button></div>`;
@@ -622,20 +624,23 @@
     }
     $('#sites').innerHTML = (DATA.sites || []).slice(0, 8).map(s => chip(s, false, `data-site="${esc(s)}"`)).join('');
     const btn = $('#submitBtn');
-    renderPhotos();
-    const miss = !S.cart.length ? '請加入品項' : !S.photos.length ? '請先拍照' : '';
+    const noPh = S.cart.filter(c => !c.photo).length;
+    const miss = !S.cart.length ? '請加入品項' : noPh ? `還有 ${noPh} 項沒拍照` : '';
     btn.disabled = !!miss;
     btn.textContent = miss || `送出登記（${cartLabel()}）→ 確認`;
   }
-  $('#cart').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; S.cart.splice(Number(b.dataset.del), 1); renderCart(); };
+  $('#cart').onclick = e => {
+    const ph = e.target.closest('[data-ph]'); if (ph) { askPhoto(+ph.dataset.ph); return; }
+    const b = e.target.closest('[data-del]'); if (!b) return; S.cart.splice(Number(b.dataset.del), 1); renderCart();
+  };
   $('#sites').onclick = e => { const b = e.target.closest('[data-site]'); if (b) $('#site').value = b.dataset.site; };
 
-  // ---------- 照片（必拍） ----------
-  function renderPhotos(){
-    const need = S.cart.length && !S.photos.length;
-    $('#photos').innerHTML = S.photos.map((p, k) => `<div class="ph"><img src="${p}" alt="照片${k + 1}"><button class="rm" data-rmph="${k}" aria-label="刪除照片">✕</button></div>`).join('')
-      + (S.photos.length < 3 ? `<div class="ph add${need ? ' need' : ''}" id="phAdd"><span>📷</span>拍照</div>` : '');
-  }
+  // ---------- 照片（每一項物品一張，必拍） ----------
+  let PH_TARGET = -1;
+  const phBtn = (c, k) => c.photo
+    ? `<button class="lph" data-ph="${k}" aria-label="重拍"><img src="${c.photo}" alt="照片"></button>`
+    : `<button class="lph need" data-ph="${k}"><span>📷</span>補拍</button>`;
+  function askPhoto(k){ PH_TARGET = k; $('#photoIn').click(); }
   function shrinkPhoto(file){
     return new Promise((ok, bad) => {
       const url = URL.createObjectURL(file), img = new Image();
@@ -649,16 +654,14 @@
       img.src = url;
     });
   }
-  $('#photos').addEventListener('click', e => {
-    const rm = e.target.closest('[data-rmph]');
-    if (rm) { S.photos.splice(+rm.dataset.rmph, 1); renderCart(); return; }
-    if (e.target.closest('#phAdd')) $('#photoIn').click();
-  });
   $('#photoIn').addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = '';
-    if (!f) return;
-    try { S.photos.push(await shrinkPhoto(f)); renderCart(); toast('📷 已加入照片', 'ok'); }
-    catch (err) { toast(err.message, 'err'); }
+    const line = S.cart[PH_TARGET];
+    if (!f || !line) return;
+    try {
+      line.photo = await shrinkPhoto(f); renderCart(); toast('📷 已拍照：' + itemOf(line.id).name, 'ok');
+      if ($('#confirmBox').classList.contains('show')) renderConfirm();
+    } catch (err) { toast(err.message, 'err'); }
   });
 
   const cartLabel = () => { const o = S.cart.filter(c => c.dir === '出').length, i = S.cart.length - o; return [o ? '出 ' + o + ' 項' : '', i ? '進 ' + i + ' 項' : ''].filter(Boolean).join('・'); };
@@ -669,7 +672,7 @@
     S.cart.forEach(c => { if (c.dir !== '出') return; const mx = capFor(itemOf(c.id), true); if (mx != null && c.qty > mx) c.qty = mx; });
     S.cart = S.cart.filter(c => c.qty > 0);
     if (!S.cart.length) { toast('清單裡的品項庫存不足，已移除', 'err'); renderCart(); return; }
-    if (!S.photos.length) { toast('請先拍照', 'err'); renderCart(); return; }
+    if (S.cart.some(c => !c.photo)) { toast('每一項物品都要拍一張照片', 'err'); renderCart(); return; }
     $('#cErr').textContent = '';
     renderConfirm();
     $('#confirmBox').classList.add('show');
@@ -677,11 +680,10 @@
   function renderConfirm(){
     const site = $('#site').value.trim(), note = $('#note').value.trim();
     $('#cSum').innerHTML = `登記人：<b>${esc(DATA.me)}</b>` +
-      (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '') +
-      `<div class="cphotos">${S.photos.map(p => `<img src="${p}" alt="照片">`).join('')}</div>`;
+      (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '');
     const row = (c, k) => {
       const it = itemOf(c.id), mx = c.dir === '出' ? capFor(it, true) : null;
-      return `<div class="crow"><div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
+      return `<div class="crow">${phBtn(c, k)}<div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
         <small>${mx != null ? '最多 ' + fmtNum(mx) + ' ' + esc(it.unit || '') : esc(it.unit || '')}</small></div>
         <div class="mini"><button data-m="${k}" aria-label="減少">−</button>
         <input data-i="${k}" type="number" inputmode="decimal" value="${c.qty}">
@@ -694,8 +696,9 @@
       if (rows.length) html += `<div class="cgroup ${cls}">${label}・${rows.length} 項</div>` + rows.map(([c, k]) => row(c, k)).join('');
     });
     $('#cList').innerHTML = html;
-    const ok = $('#cOk');
-    ok.textContent = `確認送出（${cartLabel()}）`;
+    const ok = $('#cOk'), noPh = S.cart.filter(c => !c.photo).length;
+    ok.disabled = !!noPh;
+    ok.textContent = noPh ? `還有 ${noPh} 項沒拍照` : `確認送出（${cartLabel()}）`;
     ok.style.background = 'var(--main)'; ok.style.color = '#fff';
   }
   function setCartQty(k, v){
@@ -708,6 +711,7 @@
     const inp = document.querySelector(`#cList input[data-i="${k}"]`); if (inp) inp.value = q;
   }
   $('#cList').onclick = e => {
+    const ph = e.target.closest('[data-ph]'); if (ph) { askPhoto(+ph.dataset.ph); return; }
     const m = e.target.closest('[data-m]'), pl = e.target.closest('[data-p]'), d = e.target.closest('[data-del]');
     if (m) setCartQty(+m.dataset.m, S.cart[+m.dataset.m].qty - 1);
     if (pl) setCartQty(+pl.dataset.p, S.cart[+pl.dataset.p].qty + 1);
@@ -723,10 +727,10 @@
     if (btn.disabled) return;
     btn.disabled = true; btn.textContent = '上傳照片並送出中…';
     try {
-      const r = await api(null, { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart, photos: S.photos });
+      const r = await api(null, { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
       $('#confirmBox').classList.remove('show');
       toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
-      S.cart = []; S.photos = []; S.cat = ''; S.name = ''; S.item = null;
+      S.cart = []; S.cat = ''; S.name = ''; S.item = null;
       $('#note').value = ''; $('#site').value = '';
       HIST = null;
       if (r.init) { applyData(Object.assign({}, DATA, r.init)); LS.set('data', DATA); syncedNow(); setTimeout(loadHist, 300); }

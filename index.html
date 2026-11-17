@@ -147,7 +147,14 @@
   .lnk{background:#fff;border:1.5px solid #B4541F;color:#B4541F;font-weight:700;font-size:14px;padding:7px 12px;border-radius:10px;white-space:nowrap;flex:none}
   .lnk.on{background:var(--main);border-color:var(--main);color:#fff}
   .lnk.sure{background:var(--warn);border-color:var(--warn);color:#fff}
-  .sbtns{display:flex;flex-direction:column;gap:6px;flex:none}
+  .sbtns{display:flex;flex-direction:column;align-items:stretch;gap:6px;flex:none;width:112px}
+  .seg{display:flex;gap:4px}
+  .sg{flex:1;background:#fff;border:1.5px solid #C9D1DB;color:#8A94A3;font-weight:700;font-size:14px;padding:7px 0;border-radius:10px}
+  .sg.act-on{background:var(--main);border-color:var(--main);color:#fff;opacity:1}
+  .sg.act-off{background:#B4541F;border-color:#B4541F;color:#fff;opacity:1}
+  .sg.sure{background:var(--warn);border-color:var(--warn);color:#fff}
+  .sg:disabled{cursor:default}
+  .sbtns .lnk{text-align:center}
   .pill{white-space:nowrap}
   .srow .sel{min-width:0;width:86px;padding:0 4px}
   .xdel{background:none;border:0;color:#B4541F;font-size:22px;line-height:1;width:28px;height:36px;flex:none;padding:0}
@@ -156,6 +163,16 @@
   .addrow{display:flex;align-items:flex-end;gap:10px;margin-top:14px;flex-wrap:wrap}
   .btn.addstaff{width:auto;padding:0 18px;height:48px;min-height:48px;background:var(--main);color:#fff;flex:none}
   .chip.add{border-style:dashed;border-color:#9DB6D3;color:var(--main);background:#F4F8FC;font-weight:600}
+  .photos{display:flex;gap:8px;flex-wrap:wrap}
+  .ph{position:relative;width:84px;height:84px;border-radius:12px;overflow:hidden;background:#E9EDF2}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph .rm{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:14px;line-height:24px;padding:0}
+  .ph.add{display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #9DB6D3;background:#F4F8FC;color:var(--main);font-size:13px;font-weight:700;cursor:pointer}
+  .ph.add span{font-size:26px;line-height:1.1}
+  .ph.add.need{border-color:var(--warn);color:var(--warn);background:#FDF2F1}
+  .cphotos{display:flex;gap:6px;margin-top:8px}
+  .cphotos img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+  .hist .meta a{color:var(--main);font-weight:600;text-decoration:none}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
 </head>
@@ -211,6 +228,9 @@
       <div class="sites" id="sites"></div>
       <label class="f" for="note">備註（可不填）</label>
       <input class="t" id="note" placeholder="損壞、借用對象等" autocomplete="off">
+      <label class="f">現場照片 <b style="color:var(--warn)">＊必拍</b>（最多 3 張）</label>
+      <div class="photos" id="photos"></div>
+      <input type="file" id="photoIn" accept="image/*" capture="environment" class="hidden">
     </div>
   </section>
 
@@ -323,7 +343,7 @@
   if (CFG.TITLE) { $('#title').textContent = CFG.TITLE; document.title = CFG.TITLE; }
 
   let DATA = null, HIST = null;
-  const S = { cat: '', name: '', item: null, cart: [] };
+  const S = { cat: '', name: '', item: null, cart: [], photos: [] };
   const H = { range: '7', dir: '全部', who: '全部', cat: '全部', q: '' };
   const ST = { cat: '全部', flag: '全部', q: '' };
   let tab = 'reg';
@@ -586,12 +606,44 @@
     }
     $('#sites').innerHTML = (DATA.sites || []).slice(0, 8).map(s => chip(s, false, `data-site="${esc(s)}"`)).join('');
     const btn = $('#submitBtn');
-    const miss = !S.cart.length ? '請加入品項' : '';
+    renderPhotos();
+    const miss = !S.cart.length ? '請加入品項' : !S.photos.length ? '請先拍照' : '';
     btn.disabled = !!miss;
     btn.textContent = miss || `送出登記（${cartLabel()}）→ 確認`;
   }
   $('#cart').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; S.cart.splice(Number(b.dataset.del), 1); renderCart(); };
   $('#sites').onclick = e => { const b = e.target.closest('[data-site]'); if (b) $('#site').value = b.dataset.site; };
+
+  // ---------- 照片（必拍） ----------
+  function renderPhotos(){
+    const need = S.cart.length && !S.photos.length;
+    $('#photos').innerHTML = S.photos.map((p, k) => `<div class="ph"><img src="${p}" alt="照片${k + 1}"><button class="rm" data-rmph="${k}" aria-label="刪除照片">✕</button></div>`).join('')
+      + (S.photos.length < 3 ? `<div class="ph add${need ? ' need' : ''}" id="phAdd"><span>📷</span>拍照</div>` : '');
+  }
+  function shrinkPhoto(file){
+    return new Promise((ok, bad) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const max = 1600, sc = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        ok(c.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('無法讀取照片')); };
+      img.src = url;
+    });
+  }
+  $('#photos').addEventListener('click', e => {
+    const rm = e.target.closest('[data-rmph]');
+    if (rm) { S.photos.splice(+rm.dataset.rmph, 1); renderCart(); return; }
+    if (e.target.closest('#phAdd')) $('#photoIn').click();
+  });
+  $('#photoIn').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try { S.photos.push(await shrinkPhoto(f)); renderCart(); toast('📷 已加入照片', 'ok'); }
+    catch (err) { toast(err.message, 'err'); }
+  });
 
   const cartLabel = () => { const o = S.cart.filter(c => c.dir === '出').length, i = S.cart.length - o; return [o ? '出 ' + o + ' 項' : '', i ? '進 ' + i + ' 項' : ''].filter(Boolean).join('・'); };
   // ---------- 送出前確認 ----------
@@ -601,6 +653,7 @@
     S.cart.forEach(c => { if (c.dir !== '出') return; const mx = capFor(itemOf(c.id), true); if (mx != null && c.qty > mx) c.qty = mx; });
     S.cart = S.cart.filter(c => c.qty > 0);
     if (!S.cart.length) { toast('清單裡的品項庫存不足，已移除', 'err'); renderCart(); return; }
+    if (!S.photos.length) { toast('請先拍照', 'err'); renderCart(); return; }
     $('#cErr').textContent = '';
     renderConfirm();
     $('#confirmBox').classList.add('show');
@@ -608,7 +661,8 @@
   function renderConfirm(){
     const site = $('#site').value.trim(), note = $('#note').value.trim();
     $('#cSum').innerHTML = `登記人：<b>${esc(DATA.me)}</b>` +
-      (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '');
+      (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '') +
+      `<div class="cphotos">${S.photos.map(p => `<img src="${p}" alt="照片">`).join('')}</div>`;
     const row = (c, k) => {
       const it = itemOf(c.id), mx = c.dir === '出' ? capFor(it, true) : null;
       return `<div class="crow"><div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
@@ -651,12 +705,12 @@
   $('#cOk').onclick = async () => {
     const btn = $('#cOk');
     if (btn.disabled) return;
-    btn.disabled = true; btn.textContent = '送出中…';
+    btn.disabled = true; btn.textContent = '上傳照片並送出中…';
     try {
-      const r = await api(null, { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
+      const r = await api(null, { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart, photos: S.photos });
       $('#confirmBox').classList.remove('show');
       toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
-      S.cart = []; S.cat = ''; S.name = ''; S.item = null;
+      S.cart = []; S.photos = []; S.cat = ''; S.name = ''; S.item = null;
       $('#note').value = ''; $('#site').value = '';
       HIST = null;
       await load(true);
@@ -708,7 +762,7 @@
       const voided = String(r.counted).indexOf('否') === 0;
       html += `<div class="hist${voided ? ' void' : ''}"><div class="tm">${tm}</div><div class="body">
         <span class="tag ${r.dir === '出' ? 'out' : 'in'}">${esc(r.dir)}</span> <b>${esc(r.name)}${r.spec ? '（' + esc(r.spec) + '）' : ''}</b>
-        <div class="meta">${esc(r.who || '—')}${r.site ? '・' + esc(r.site) : ''}${r.id ? '・' + esc(r.id) : ''}${r.note ? '・' + esc(r.note) : ''}</div>
+        <div class="meta">${esc(r.who || '—')}${r.site ? '・' + esc(r.site) : ''}${r.id ? '・' + esc(r.id) : ''}${r.note ? '・' + esc(r.note) : ''}${(r.photo || []).map((u, i) => `・<a href="${esc(u)}" target="_blank" rel="noopener">📷${r.photo.length > 1 ? i + 1 : '照片'}</a>`).join('')}</div>
         ${voided ? '<span class="tag mute">' + esc(r.counted) + '</span> ' : ''}${r.check ? '<span class="tag warn">' + esc(r.check) + '</span>' : ''}
         </div><div class="q">${r.dir === '出' ? '−' : '+'}${fmtNum(r.qty)} <small>${esc(r.unit || '')}</small></div></div>`;
     });
@@ -788,16 +842,20 @@
     if (!STAFF.length) { $('#staffList').innerHTML = '<div class="empty">名單是空的</div>'; return; }
     $('#staffList').innerHTML = STAFF.map((s, k) => {
       const me = s.name === DATA.me;
-      const pill = !s.active ? '<span class="pill off">已停用</span>' : s.hasPin ? '<span class="pill ok">已設PIN</span>' : '<span class="pill wait">待首次登入設PIN</span>';
+      const pill = !s.active ? '<span class="pill off">已停用</span>' : s.hasPin ? '<span class="pill ok">已設PIN</span>' : '<span class="pill wait">待設PIN</span>';
       const sure = (a) => SURE === a + k;
       return `<div class="srow${s.active ? '' : ' off'}">
         <button class="xdel${me ? ' ghost' : ''}${sure('x') ? ' sure' : ''}" data-del-staff="${k}" aria-label="移除">${sure('x') ? '確定移除？' : '✕'}</button>
         <select class="sel" data-role="${k}"${s.active ? '' : ' disabled'}>${ROLES.map(r => `<option${r === s.role ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>
         <div class="who"><b>${esc(s.name)}</b>${pill}${me ? ' <span class="pill ok" style="background:#E3ECF7;color:var(--main)">我</span>' : ''}
           ${s.lastLogin ? `<small>最後登入：${esc(s.lastLogin)}</small>` : ''}</div>
-        <div class="sbtns">${s.active && s.hasPin ? `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>` : ''}
-        ${me ? '' : s.active ? `<button class="lnk${sure('d') ? ' sure' : ''}" data-off="${k}">${sure('d') ? '確定停用？' : '停用'}</button>`
-                             : `<button class="lnk on" data-on="${k}">啟用</button>`}</div>
+        <div class="sbtns">
+          <div class="seg">
+            <button class="sg${s.active ? ' act-on' : ''}" ${s.active ? 'disabled' : `data-on="${k}"`}>啟用</button>
+            <button class="sg${!s.active ? ' act-off' : ''}${sure('d') ? ' sure' : ''}" ${!s.active || me ? 'disabled' : `data-off="${k}"`}>${sure('d') ? '確定？' : '停用'}</button>
+          </div>
+          ${s.active && s.hasPin ? `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>` : ''}
+        </div>
       </div>`;
     }).join('');
   }

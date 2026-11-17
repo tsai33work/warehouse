@@ -174,12 +174,12 @@
       <div class="stockline" id="stockline"></div>
       <div class="capnote hidden" id="capnote"></div>
       <div style="height:12px"></div>
-      <div class="grid2"><button class="btn addout" id="addOut">＋ 加入出庫</button><button class="btn addin" id="addIn">＋ 加入入庫</button></div>
+      <div class="grid2"><button class="btn addout" id="addOut">出庫</button><button class="btn addin" id="addIn">入庫</button></div>
     </div>
 
     <div class="card" id="card-cart">
       <div class="step">登記清單<span class="val" id="v-cart">尚未加入品項</span></div>
-      <div id="cart"><div class="empty">選好品項與數量後，按「加入出庫」或「加入入庫」。<br>出庫、入庫可以混在同一張清單一起送出。</div></div>
+      <div id="cart"><div class="empty">選好品項與數量後，按「出庫」或「入庫」。<br>出庫、入庫可以混在同一張清單一起送出。</div></div>
       <label class="f" for="site">工地／用途（可不填）</label>
       <input class="t" id="site" placeholder="例：淡水河金色水岸" autocomplete="off">
       <div class="sites" id="sites"></div>
@@ -508,7 +508,7 @@
   function renderCart(){
     const box = $('#cart');
     if (!S.cart.length) {
-      box.innerHTML = '<div class="empty">選好品項與數量後，按「加入出庫」或「加入入庫」。<br>出庫、入庫可以混在同一張清單一起送出。</div>';
+      box.innerHTML = '<div class="empty">選好品項與數量後，按「出庫」或「入庫」。<br>出庫、入庫可以混在同一張清單一起送出。</div>';
       $('#v-cart').textContent = '尚未加入品項';
     } else {
       box.innerHTML = S.cart.map((c, k) => {

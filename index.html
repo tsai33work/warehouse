@@ -18,7 +18,7 @@
   button{font:inherit;color:inherit;cursor:pointer}
   header{position:sticky;top:0;z-index:20;background:var(--main);color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 16px 0}
   header h1{margin:0 0 8px;font-size:17px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
-  header h1 .sync{margin-left:auto;font-size:12px;font-weight:400;opacity:.8}
+  header h1 .sync{font-size:12px;font-weight:400;opacity:.8}
   nav{display:flex;gap:4px}
   nav button{flex:1;background:none;border:0;color:#C9D8EA;padding:10px 0 12px;font-size:15px;border-bottom:3px solid transparent}
   nav button.on{color:#fff;font-weight:700;border-bottom-color:#fff}
@@ -28,10 +28,10 @@
   .step .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--main);color:#fff;font-size:12px;font-weight:700;flex:none}
   .step .val{margin-left:auto;font-weight:400;color:var(--mute);font-size:13px;text-align:right}
   .chips{display:flex;flex-wrap:wrap;gap:8px}
-  .chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:9px 15px;font-size:15px;min-height:44px;line-height:1.2}
+  .chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px;font-size:15px;min-height:44px;line-height:1.2}
   .chip.on{background:var(--main);border-color:var(--main);color:#fff;font-weight:700}
   .chip small{opacity:.65;margin-left:4px;font-size:12px}
-  .chip .pf{display:inline-block;min-width:20px;font-weight:700;margin-right:4px;color:var(--main-2)}
+  .chip .pf{font-weight:700;margin-right:3px;color:var(--main-2)}
   .chip.on .pf{color:#BFD6EF}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .dirbtn{border:2px solid var(--line);background:#fff;border-radius:var(--r);padding:16px 8px;font-size:20px;font-weight:700;min-height:64px}
@@ -107,12 +107,30 @@
   .spinner{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--main-dk);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 10px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .hidden{display:none !important}
+  .me{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:13px;font-weight:600;background:rgba(255,255,255,.15);border-radius:999px;padding:4px 6px 4px 12px}
+  .me button{background:rgba(255,255,255,.2);border:0;color:#fff;border-radius:999px;padding:3px 10px;font-size:12px}
+  .dialog .chips{margin:4px 0 14px}
+  .dialog .err{color:var(--warn);font-size:14px;min-height:20px;margin:-4px 0 8px}
+  .dialog .back{display:block;margin:10px auto 0;background:none;border:0;color:var(--mute);font-size:14px}
+  .dialog.wide{max-width:520px;max-height:88vh;display:flex;flex-direction:column}
+  .clist{overflow-y:auto;margin:0 -4px 12px;padding:0 4px}
+  .crow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  .crow:first-child{border-top:0}
+  .crow .t{flex:1;min-width:0}
+  .crow .t small{display:block;color:var(--mute)}
+  .mini{display:flex;align-items:center;gap:4px;flex:none}
+  .mini button{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--line);background:#fff;font-size:20px;line-height:1}
+  .mini input{width:48px;height:34px;text-align:center;font-size:18px;font-weight:700;border:1.5px solid var(--line);border-radius:10px}
+  .csum{font-size:14px;color:var(--mute);margin-bottom:12px}
+  .btnrow{display:flex;gap:10px}
+  .btnrow .btn{flex:1}
+  .capnote{color:var(--out);font-size:13px;margin-top:6px}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
 </head>
 <body>
 <header>
-  <h1><span id="title">倉庫進出登記</span><button class="refresh sync" id="syncBtn" title="重新整理">↻ <span id="syncTxt">載入中</span></button></h1>
+  <h1 style="flex-wrap:wrap"><span id="title" style="margin-right:auto">倉庫進出登記</span><span class="me hidden" id="meBox"><span id="meName"></span><button id="logoutBtn">登出</button></span><button class="refresh sync" id="syncBtn" title="重新整理" style="margin-left:10px">↻ <span id="syncTxt">載入中</span></button></h1>
   <nav>
     <button data-tab="reg" class="on">登記</button>
     <button data-tab="hist">進出歷程</button>
@@ -126,30 +144,26 @@
   <!-- 登記 -->
   <section id="tab-reg" class="hidden">
     <div class="card">
-      <div class="step"><span class="n">1</span>人員<span class="val" id="v-who"></span></div>
-      <div class="chips" id="who"></div>
-    </div>
-    <div class="card">
-      <div class="step"><span class="n">2</span>進／出</div>
+      <div class="step"><span class="n">1</span>進／出</div>
       <div class="grid2">
         <button class="dirbtn out" data-dir="出">出<span>領出</span></button>
         <button class="dirbtn in" data-dir="進">進<span>入庫／歸還</span></button>
       </div>
     </div>
     <div class="card">
-      <div class="step"><span class="n">3</span>貨品大項<span class="val" id="v-cat"></span></div>
+      <div class="step"><span class="n">2</span>貨品大項<span class="val" id="v-cat"></span></div>
       <div class="chips" id="cats"></div>
     </div>
     <div class="card hidden" id="card-name">
-      <div class="step"><span class="n">4</span>細項<span class="val" id="v-name"></span></div>
+      <div class="step"><span class="n">3</span>細項<span class="val" id="v-name"></span></div>
       <div class="chips" id="names"></div>
     </div>
     <div class="card hidden" id="card-spec">
-      <div class="step"><span class="n">5</span>名稱（規格）<span class="val" id="v-spec"></span></div>
+      <div class="step"><span class="n">4</span>名稱（規格）<span class="val" id="v-spec"></span></div>
       <div class="chips" id="specs"></div>
     </div>
     <div class="card hidden" id="card-qty">
-      <div class="step"><span class="n">6</span>數量<span class="val" id="v-unit"></span></div>
+      <div class="step"><span class="n">5</span>數量<span class="val" id="v-unit"></span></div>
       <div class="qty">
         <button class="pm" id="minus" aria-label="減少">−</button>
         <input id="qty" type="number" inputmode="decimal" min="0" step="any" value="1">
@@ -159,6 +173,7 @@
         <button data-q="1">1</button><button data-q="2">2</button><button data-q="5">5</button><button data-q="10">10</button><button data-q="20">20</button>
       </div>
       <div class="stockline" id="stockline"></div>
+      <div class="capnote hidden" id="capnote"></div>
       <div style="height:12px"></div>
       <button class="btn ghost" id="addBtn">＋ 加入清單</button>
     </div>
@@ -202,11 +217,39 @@
   <button class="btn primary" id="submitBtn" disabled>送出登記</button>
 </div></div>
 
-<div class="overlay" id="pinBox"><div class="dialog">
-  <h2>輸入通行碼</h2>
-  <p>第一次使用請輸入倉庫管理員給你的 6 位數通行碼，之後這支手機就不用再輸入。</p>
-  <input class="pinin" id="pin" type="tel" inputmode="numeric" maxlength="12" autocomplete="off">
-  <button class="btn primary" id="pinOk">確定</button>
+<div class="overlay" id="loginBox"><div class="dialog">
+  <div id="lg-code">
+    <h2>公司通行碼</h2>
+    <p>第一次使用這支手機，請輸入管理員給你的公司通行碼。</p>
+    <input class="pinin" id="codeIn" type="tel" inputmode="numeric" maxlength="12" autocomplete="off">
+    <div class="err" id="codeErr"></div>
+    <button class="btn primary" id="codeOk">下一步</button>
+  </div>
+  <div id="lg-name" class="hidden">
+    <h2>你是誰？</h2>
+    <p>點選自己的名字。</p>
+    <div class="chips" id="lgNames"></div>
+  </div>
+  <div id="lg-pin" class="hidden">
+    <h2 id="lgPinTitle">輸入 PIN</h2>
+    <p id="lgPinHint"></p>
+    <input class="pinin" id="pinIn" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="PIN">
+    <input class="pinin hidden" id="pinIn2" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="再輸入一次">
+    <div class="err" id="pinErr"></div>
+    <button class="btn primary" id="pinOk">登入</button>
+    <button class="back" id="pinBack">← 不是我，重新選名字</button>
+  </div>
+</div></div>
+
+<div class="overlay" id="confirmBox"><div class="dialog wide">
+  <h2>請確認登記內容</h2>
+  <div class="csum" id="cSum"></div>
+  <div class="clist" id="cList"></div>
+  <div class="err" id="cErr"></div>
+  <div class="btnrow">
+    <button class="btn ghost" id="cBack">返回修改</button>
+    <button class="btn primary" id="cOk">確認送出</button>
+  </div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -224,39 +267,94 @@
   if (CFG.TITLE) { $('#title').textContent = CFG.TITLE; document.title = CFG.TITLE; }
 
   let DATA = null, HIST = null;
-  const S = { who: LS.get('who', ''), dir: '', cat: '', name: '', item: null, cart: [] };
+  const S = { dir: '', cat: '', name: '', item: null, cart: [] };
   const H = { range: '7', dir: '全部', who: '全部', cat: '全部', q: '' };
   const ST = { cat: '全部', flag: '全部', q: '' };
   let tab = 'reg';
 
-  // ---------- API ----------
+  // ---------- 登入 ----------
+  const AUTH = { code: LS.get('code', ''), name: LS.get('name', ''), pin: LS.get('pin2', '') };
+  let LG_STAFF = [], LG_SEL = null;
+
   async function api(params, body){
     if (!API) throw new Error('尚未設定 API 網址（config.js）');
-    const pin = LS.get('pin', '');
+    const auth = { code: AUTH.code, name: AUTH.name, pin: AUTH.pin };
     let res;
     if (body) {
-      res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ pin }, body)) });
+      res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign(auth, body)) });
     } else {
-      const q = new URLSearchParams(Object.assign({ pin }, params || {}));
+      const q = new URLSearchParams(Object.assign(auth, params || {}));
       res = await fetch(API + (API.includes('?') ? '&' : '?') + q.toString());
     }
     const j = await res.json();
     if (!j.ok) {
-      if (j.error === 'PIN') { askPin(); throw new Error('PIN'); }
+      if (j.error === 'CODE') { AUTH.code = ''; LS.set('code', ''); showLogin('code', '公司通行碼不正確'); throw new Error('AUTH'); }
+      if (j.error === 'LOGIN') { AUTH.pin = ''; LS.set('pin2', ''); showLogin('name'); throw new Error('AUTH'); }
       throw new Error(j.error || '伺服器錯誤');
     }
     return j;
   }
 
-  function askPin(){ $('#pinBox').classList.add('show'); setTimeout(() => $('#pin').focus(), 50); }
-  $('#pinOk').onclick = () => {
-    const v = $('#pin').value.trim();
-    if (!v) return;
-    LS.set('pin', v);
-    $('#pinBox').classList.remove('show');
-    load();
+  function lgStep(s){ ['code', 'name', 'pin'].forEach(x => $('#lg-' + x).classList.toggle('hidden', x !== s)); }
+  async function showLogin(step, err){
+    $('#loginBox').classList.add('show');
+    if (step === 'code' || !AUTH.code) {
+      lgStep('code'); $('#codeErr').textContent = err || ''; setTimeout(() => $('#codeIn').focus(), 50); return;
+    }
+    lgStep('name');
+    $('#lgNames').innerHTML = '<div class="hint">載入名單中…</div>';
+    try {
+      const q = new URLSearchParams({ action: 'staff', code: AUTH.code });
+      const j = await (await fetch(API + '?' + q.toString())).json();
+      if (!j.ok) { if (j.error === 'CODE') { AUTH.code = ''; LS.set('code', ''); return showLogin('code', '公司通行碼不正確'); } throw new Error(j.error); }
+      LG_STAFF = j.staff;
+      $('#lgNames').innerHTML = LG_STAFF.map((s, k) => `<button class="chip" data-k="${k}">${esc(s.name)}${s.hasPin ? '' : '<small>未設定</small>'}</button>`).join('')
+        || '<div class="hint">名單是空的，請管理員到試算表「設定」A 欄加入人員。</div>';
+    } catch (e) { $('#lgNames').innerHTML = '<div class="err">⚠ ' + esc(e.message) + '</div>'; }
+  }
+  $('#codeOk').onclick = async () => {
+    const v = $('#codeIn').value.trim(); if (!v) return;
+    AUTH.code = v; LS.set('code', v); showLogin('name');
   };
-  $('#pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#pinOk').click(); });
+  $('#codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#codeOk').click(); });
+  $('#lgNames').onclick = e => {
+    const b = e.target.closest('[data-k]'); if (!b) return;
+    LG_SEL = LG_STAFF[Number(b.dataset.k)];
+    const setting = !LG_SEL.hasPin;
+    $('#lgPinTitle').textContent = (setting ? '設定 PIN：' : '輸入 PIN：') + LG_SEL.name;
+    $('#lgPinHint').textContent = setting ? '第一次登入，請自己設定 4～8 位數字 PIN，之後都用這組登入。請記住，不要告訴別人。' : '請輸入你自己設定的 PIN。忘記的話請找管理員重設。';
+    $('#pinIn2').classList.toggle('hidden', !setting);
+    $('#pinOk').textContent = setting ? '設定並登入' : '登入';
+    $('#pinIn').value = ''; $('#pinIn2').value = ''; $('#pinErr').textContent = '';
+    lgStep('pin'); setTimeout(() => $('#pinIn').focus(), 50);
+  };
+  $('#pinBack').onclick = () => showLogin('name');
+  [$('#pinIn'), $('#pinIn2')].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') $('#pinOk').click(); }));
+  $('#pinOk').onclick = async () => {
+    const pin = $('#pinIn').value.trim(), setting = !LG_SEL.hasPin;
+    if (!/^\d{4,8}$/.test(pin)) { $('#pinErr').textContent = 'PIN 請輸入 4～8 位數字'; return; }
+    if (setting && pin !== $('#pinIn2').value.trim()) { $('#pinErr').textContent = '兩次輸入的 PIN 不一樣'; return; }
+    const btn = $('#pinOk'); btn.disabled = true;
+    try {
+      const j = await (await fetch(API, { method: 'POST', body: JSON.stringify({ action: setting ? 'setpin' : 'login', code: AUTH.code, name: LG_SEL.name, pin }) })).json();
+      if (!j.ok) {
+        if (j.error === 'CODE') { AUTH.code = ''; LS.set('code', ''); return showLogin('code', '公司通行碼不正確'); }
+        $('#pinErr').textContent = j.error === 'LOGIN' ? 'PIN 不正確' : j.error; return;
+      }
+      AUTH.name = LG_SEL.name; AUTH.pin = pin; LS.set('name', AUTH.name); LS.set('pin2', pin);
+      $('#loginBox').classList.remove('show');
+      toast('👋 ' + AUTH.name + '，已登入', 'ok');
+      load();
+    } catch (e) { $('#pinErr').textContent = '連線失敗：' + e.message; }
+    finally { btn.disabled = false; }
+  };
+  $('#logoutBtn').onclick = () => {
+    AUTH.name = ''; AUTH.pin = ''; LS.set('name', ''); LS.set('pin2', '');
+    DATA = null; HIST = null; S.cart = []; $('#meBox').classList.add('hidden');
+    ['reg', 'hist', 'stock'].forEach(x => $('#tab-' + x).classList.add('hidden'));
+    $('#submitbar').classList.add('hidden');
+    showLogin('name');
+  };
 
   function toast(msg, type){
     const t = $('#toast');
@@ -268,7 +366,7 @@
     $('#syncTxt').textContent = '同步中';
     try {
       DATA = await api({ action: 'init' });
-      if (S.who && DATA.staff.indexOf(S.who) < 0) S.who = '';
+      $('#meName').textContent = '👤 ' + DATA.me; $('#meBox').classList.remove('hidden');
       if (S.item) S.item = DATA.items.find(i => i.id === S.item.id) || null;
       $('#boot').classList.add('hidden');
       showTab(tab);
@@ -277,7 +375,7 @@
       if (tab === 'hist' || HIST) loadHist();
     } catch (e) {
       $('#syncTxt').textContent = '連線失敗';
-      if (e.message !== 'PIN') {
+      if (e.message !== 'AUTH') {
         $('#boot').innerHTML = '⚠ 無法載入資料<br><small>' + esc(e.message) + '</small>';
         if (!silent) toast('無法載入：' + e.message, 'err');
       }
@@ -286,7 +384,7 @@
   async function loadHist(){
     if (tab === 'hist' && !HIST) $('#h-list').innerHTML = '<div class="loading"><div class="spinner"></div>讀取紀錄中…</div>';
     try { HIST = (await api({ action: 'history', limit: 1000 })).rows; renderHist(); }
-    catch (e) { if (e.message !== 'PIN') $('#h-list').innerHTML = '<div class="empty">⚠ ' + esc(e.message) + '</div>'; }
+    catch (e) { if (e.message !== 'AUTH') $('#h-list').innerHTML = '<div class="empty">⚠ ' + esc(e.message) + '</div>'; }
   }
   $('#syncBtn').onclick = () => load();
 
@@ -310,16 +408,15 @@
     DATA.items.forEach(i => { if (known.indexOf(i.cat) < 0) known.push(i.cat); });
     return known.filter(c => DATA.items.some(i => i.cat === c));
   };
+  const pfSpan = c => { const p = prefixOf(c); return p ? `<span class="pf">${esc(p)}</span>` : ''; };
   const chip = (label, on, attrs, extra) => `<button class="chip${on ? ' on' : ''}" ${attrs || ''}>${extra || ''}${esc(label)}</button>`;
   const fmtNum = n => (n == null || n === '') ? '—' : (Math.round(Number(n) * 100) / 100).toString();
   const specLabel = s => s || '（無規格）';
 
   function renderReg(){
-    $('#who').innerHTML = DATA.staff.map(w => chip(w, S.who === w, `data-who="${esc(w)}"`)).join('') || '<div class="hint">請到試算表「設定」分頁新增人員</div>';
-    $('#v-who').textContent = S.who;
     document.querySelectorAll('.dirbtn').forEach(b => b.classList.toggle('on', b.dataset.dir === S.dir));
 
-    $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, `<span class="pf">${esc(prefixOf(c))}</span>`)).join('');
+    $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, pfSpan(c))).join('');
     $('#v-cat').textContent = S.cat;
 
     const inCat = DATA.items.filter(i => i.cat === S.cat);
@@ -342,11 +439,20 @@
       const st = S.item.stock;
       $('#stockline').innerHTML = '目前帳面庫存：<b>' + fmtNum(st) + '</b> ' + esc(S.item.unit || '') +
         (S.item.alert ? ' <span class="tag warn">' + esc(S.item.alert) + '</span>' : '');
+      const mx = capFor(S.item);
+      const cn = $('#capnote');
+      if (mx == null) { cn.classList.add('hidden'); $('#addBtn').disabled = false; }
+      else {
+        cn.classList.remove('hidden');
+        cn.textContent = mx > 0 ? '出庫最多 ' + fmtNum(mx) + ' ' + (S.item.unit || '') + (inCart(S.item.id) ? '（清單裡已有 ' + fmtNum(inCart(S.item.id)) + '）' : '')
+                                : '⚠ 庫存不足，無法再出庫';
+        $('#addBtn').disabled = mx <= 0;
+        setQty(getQty());
+      }
     }
     renderCart();
   }
 
-  $('#who').onclick = e => { const b = e.target.closest('[data-who]'); if (!b) return; S.who = b.dataset.who; LS.set('who', S.who); renderReg(); };
   document.querySelectorAll('.dirbtn').forEach(b => b.onclick = () => { S.dir = b.dataset.dir; renderReg(); });
   $('#cats').onclick = e => {
     const b = e.target.closest('[data-cat]'); if (!b) return;
@@ -369,14 +475,29 @@
   function scrollToCard(sel){ setTimeout(() => { const el = $(sel); if (el && !el.classList.contains('hidden')) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 30); }
 
   const getQty = () => { const v = parseFloat($('#qty').value); return isFinite(v) ? v : 0; };
-  $('#minus').onclick = () => { $('#qty').value = Math.max(1, getQty() - 1); };
-  $('#plus').onclick = () => { $('#qty').value = getQty() + 1; };
-  $('#quick').onclick = e => { const b = e.target.closest('[data-q]'); if (b) $('#qty').value = b.dataset.q; };
+  const inCart = id => S.cart.filter(c => c.id === id).reduce((a, c) => a + c.qty, 0);
+  // 出庫上限：期初已盤點的品項才限制；回傳 null 表示不限制
+  function capFor(it, excludeCart){
+    if (S.dir !== '出' || !it || !it.counted || it.stock == null) return null;
+    return Math.max(0, it.stock - (excludeCart ? 0 : inCart(it.id)));
+  }
+  function setQty(v){
+    let q = Number(v); if (!isFinite(q) || q < 1) q = 1;
+    const mx = capFor(S.item);
+    if (mx != null && q > mx) { q = Math.max(mx, 0); if (mx > 0) toast('出庫最多 ' + fmtNum(mx) + '，已自動調整', ''); }
+    $('#qty').value = q;
+  }
+  $('#minus').onclick = () => setQty(getQty() - 1);
+  $('#plus').onclick = () => setQty(getQty() + 1);
+  $('#quick').onclick = e => { const b = e.target.closest('[data-q]'); if (b) setQty(b.dataset.q); };
+  $('#qty').addEventListener('change', () => setQty(getQty()));
 
   $('#addBtn').onclick = () => {
     const q = getQty();
     if (!S.item) return;
     if (!(q > 0)) { toast('數量要大於 0', 'err'); return; }
+    const mx = capFor(S.item);
+    if (mx != null && q > mx) { toast('庫存不足，最多只能出 ' + fmtNum(mx), 'err'); setQty(q); return; }
     const ex = S.cart.find(c => c.id === S.item.id);
     if (ex) ex.qty += q; else S.cart.push({ id: S.item.id, qty: q });
     toast('已加入：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + q, 'ok');
@@ -403,21 +524,70 @@
     }
     $('#sites').innerHTML = (DATA.sites || []).slice(0, 8).map(s => chip(s, false, `data-site="${esc(s)}"`)).join('');
     const btn = $('#submitBtn');
-    const miss = !S.who ? '請先選人員' : !S.dir ? '請選進或出' : !S.cart.length ? '請加入品項' : '';
+    const miss = !S.dir ? '請選進或出' : !S.cart.length ? '請加入品項' : '';
     btn.disabled = !!miss;
-    btn.textContent = miss || `送出登記（${S.dir}・${S.cart.length} 項）`;
+    btn.textContent = miss || `送出登記（${S.dir}・${S.cart.length} 項）→ 確認`;
     btn.style.background = miss ? '' : (S.dir === '出' ? 'var(--out)' : 'var(--in)');
     btn.style.color = miss ? '' : '#fff';
   }
   $('#cart').onclick = e => { const b = e.target.closest('[data-del]'); if (!b) return; S.cart.splice(Number(b.dataset.del), 1); renderCart(); };
   $('#sites').onclick = e => { const b = e.target.closest('[data-site]'); if (b) $('#site').value = b.dataset.site; };
 
-  $('#submitBtn').onclick = async () => {
-    const btn = $('#submitBtn');
+  // ---------- 送出前確認 ----------
+  const itemOf = id => DATA.items.find(i => i.id === id) || { id, name: id, spec: '', unit: '', cat: '' };
+  function openConfirm(){
+    // 進/出 若在加入後才切換成「出」，這裡再統一套用上限
+    S.cart.forEach(c => { const mx = capFor(itemOf(c.id), true); if (mx != null && c.qty > mx) c.qty = mx; });
+    S.cart = S.cart.filter(c => c.qty > 0);
+    if (!S.cart.length) { toast('清單裡的品項庫存不足，已移除', 'err'); renderCart(); return; }
+    $('#cErr').textContent = '';
+    renderConfirm();
+    $('#confirmBox').classList.add('show');
+  }
+  function renderConfirm(){
+    const site = $('#site').value.trim(), note = $('#note').value.trim();
+    $('#cSum').innerHTML = `登記人：<b>${esc(DATA.me)}</b>　<span class="tag ${S.dir === '出' ? 'out' : 'in'}">${esc(S.dir)}</span>` +
+      (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '');
+    $('#cList').innerHTML = S.cart.map((c, k) => {
+      const it = itemOf(c.id), mx = capFor(it, true);
+      return `<div class="crow"><div class="t"><b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>
+        <small>${mx != null ? '最多 ' + fmtNum(mx) + ' ' + esc(it.unit || '') : esc(it.unit || '')}</small></div>
+        <div class="mini"><button data-m="${k}" aria-label="減少">−</button>
+        <input data-i="${k}" type="number" inputmode="decimal" value="${c.qty}">
+        <button data-p="${k}" aria-label="增加">＋</button></div>
+        <button class="x" data-del="${k}" aria-label="刪除" style="border:0;background:var(--bg);width:32px;height:32px;border-radius:50%;color:var(--mute)">×</button></div>`;
+    }).join('');
+    const ok = $('#cOk');
+    ok.textContent = `確認送出（${S.dir}・${S.cart.length} 項）`;
+    ok.style.background = S.dir === '出' ? 'var(--out)' : 'var(--in)'; ok.style.color = '#fff';
+  }
+  function setCartQty(k, v){
+    const c = S.cart[k]; if (!c) return;
+    let q = Number(v); if (!isFinite(q) || q < 1) q = 1;
+    const mx = capFor(itemOf(c.id), true);
+    if (mx != null && q > mx) { q = mx; $('#cErr').textContent = itemOf(c.id).name + ' 最多只能出 ' + fmtNum(mx); }
+    else $('#cErr').textContent = '';
+    c.qty = q;
+    const inp = document.querySelector(`#cList input[data-i="${k}"]`); if (inp) inp.value = q;
+  }
+  $('#cList').onclick = e => {
+    const m = e.target.closest('[data-m]'), pl = e.target.closest('[data-p]'), d = e.target.closest('[data-del]');
+    if (m) setCartQty(+m.dataset.m, S.cart[+m.dataset.m].qty - 1);
+    if (pl) setCartQty(+pl.dataset.p, S.cart[+pl.dataset.p].qty + 1);
+    if (d) { S.cart.splice(+d.dataset.del, 1); if (!S.cart.length) { closeConfirm(); return; } renderConfirm(); }
+  };
+  $('#cList').addEventListener('change', e => { const i = e.target.closest('[data-i]'); if (i) setCartQty(+i.dataset.i, i.value); });
+  function closeConfirm(){ $('#confirmBox').classList.remove('show'); renderCart(); }
+  $('#cBack').onclick = closeConfirm;
+
+  $('#submitBtn').onclick = () => { if (!$('#submitBtn').disabled) openConfirm(); };
+  $('#cOk').onclick = async () => {
+    const btn = $('#cOk');
     if (btn.disabled) return;
     btn.disabled = true; btn.textContent = '送出中…';
     try {
-      const r = await api(null, { who: S.who, dir: S.dir, site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
+      const r = await api(null, { dir: S.dir, site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
+      $('#confirmBox').classList.remove('show');
       toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
       S.cart = []; S.dir = ''; S.cat = ''; S.name = ''; S.item = null;
       $('#note').value = ''; $('#site').value = '';
@@ -425,9 +595,9 @@
       await load(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      if (e.message !== 'PIN') toast('送出失敗：' + e.message, 'err');
-      renderCart();
-    }
+      if (e.message !== 'AUTH') $('#cErr').textContent = '送出失敗：' + e.message;
+      else $('#confirmBox').classList.remove('show');
+    } finally { btn.disabled = false; if ($('#confirmBox').classList.contains('show')) renderConfirm(); }
   };
 
   // ---------- 進出歷程 ----------
@@ -444,7 +614,7 @@
     $('#f-range').innerHTML = RANGES.map(([k, v]) => chip(v, H.range === k, `data-k="range" data-v="${k}"`)).join('');
     $('#f-dir').innerHTML = ['全部', '出', '進'].map(v => chip(v === '全部' ? '進＋出' : v, H.dir === v, `data-k="dir" data-v="${v}"`)).join('');
     $('#f-who').innerHTML = whos.map(v => chip(v === '全部' ? '所有人員' : v, H.who === v, `data-k="who" data-v="${esc(v)}"`)).join('');
-    $('#f-cat').innerHTML = cats.map(v => chip(v === '全部' ? '所有大項' : v, H.cat === v, `data-k="cat" data-v="${esc(v)}"`, v === '全部' ? '' : `<span class="pf">${esc(prefixOf(v))}</span>`)).join('');
+    $('#f-cat').innerHTML = cats.map(v => chip(v === '全部' ? '所有大項' : v, H.cat === v, `data-k="cat" data-v="${esc(v)}"`, v === '全部' ? '' : pfSpan(v))).join('');
 
     const now = new Date(), start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (H.range !== 'all') start.setDate(start.getDate() - (Number(H.range) - 1));
@@ -485,7 +655,7 @@
   // ---------- 庫存 ----------
   function renderStock(){
     const cats = ['全部', ...catsList()];
-    $('#s-cat').innerHTML = cats.map(v => chip(v === '全部' ? '所有大項' : v, ST.cat === v, `data-v="${esc(v)}"`, v === '全部' ? '' : `<span class="pf">${esc(prefixOf(v))}</span>`)).join('');
+    $('#s-cat').innerHTML = cats.map(v => chip(v === '全部' ? '所有大項' : v, ST.cat === v, `data-v="${esc(v)}"`, v === '全部' ? '' : pfSpan(v))).join('');
     $('#s-flag').innerHTML = ['全部', '需注意'].map(v => chip(v === '全部' ? '全部品項' : '⚠ 只看需注意', ST.flag === v, `data-f="${v}"`)).join('');
     const q = ST.q.toLowerCase();
     const rows = DATA.items.filter(i =>
@@ -505,8 +675,9 @@
   if (!API) {
     $('#boot').innerHTML = '⚠ 尚未設定資料來源<br><small>請在 GitHub 編輯 config.js，貼上 Apps Script 網頁應用程式網址。</small>';
     $('#syncTxt').textContent = '未設定';
-  } else if (!LS.get('pin', '')) {
-    askPin();
+  } else if (!AUTH.code || !AUTH.name || !AUTH.pin) {
+    $('#boot').classList.add('hidden');
+    showLogin(AUTH.code ? 'name' : 'code');
   } else {
     load();
   }

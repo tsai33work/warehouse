@@ -147,6 +147,8 @@
   .lnk{background:#fff;border:1.5px solid #B4541F;color:#B4541F;font-weight:700;font-size:14px;padding:7px 12px;border-radius:10px;white-space:nowrap;flex:none}
   .lnk.on{background:var(--main);border-color:var(--main);color:#fff}
   .lnk.sure{background:var(--warn);border-color:var(--warn);color:#fff}
+  .srow{flex-wrap:wrap;row-gap:6px}
+  .srow .ll{flex-basis:100%;padding-left:38px;font-size:12px;color:var(--mute)}
   .sbtns{display:flex;flex-direction:column;align-items:stretch;gap:6px;flex:none;width:112px}
   .seg{display:flex;gap:4px}
   .sg{flex:1;background:#fff;border:1.5px solid #C9D1DB;color:#8A94A3;font-weight:700;font-size:14px;padding:7px 0;border-radius:10px}
@@ -849,13 +851,14 @@
         <button class="xdel${me ? ' ghost' : ''}${sure('x') ? ' sure' : ''}" data-del-staff="${k}" aria-label="移除">${sure('x') ? '確定移除？' : '✕'}</button>
         <select class="sel" data-role="${k}"${s.active ? '' : ' disabled'}>${ROLES.map(r => `<option${r === s.role ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>
         <div class="who"><b>${esc(s.name)}</b>${pill}${me ? ' <span class="pill ok" style="background:#E3ECF7;color:var(--main)">我</span>' : ''}
-          ${s.lastLogin ? `<small>最後登入：${esc(s.lastLogin)}</small>` : ''}</div>
+</div>
         <div class="sbtns">${
           !s.active ? `<button class="sg act-on" data-on="${k}">啟用</button>`
           : !s.hasPin ? `<span class="sg idle">未啟用</span>`
           : `<button class="lnk${sure('r') ? ' sure' : ''}" data-reset="${k}">${sure('r') ? '確定重設？' : '重設PIN'}</button>
              <button class="lnk${sure('d') ? ' sure' : ''}" ${me ? 'disabled style="opacity:.4"' : `data-off="${k}"`}>${sure('d') ? '確定停用？' : '停用'}</button>`
         }</div>
+        ${s.lastLogin ? `<div class="ll">最後登入：${esc(s.lastLogin)}</div>` : ''}
       </div>`;
     }).join('');
   }

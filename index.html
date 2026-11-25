@@ -185,6 +185,13 @@
   .lph.need{border:2px dashed var(--warn);background:#FDF2F1;color:var(--warn);font-size:11px;font-weight:700;line-height:1.2}
   .lph.need span{display:block;font-size:20px}
   .crow .lph{width:44px;height:44px}
+  .lph.opt{border:2px dashed #B8C2CF;background:#F4F6F9;color:#7A8494;font-size:11px;font-weight:700;line-height:1.2}
+  .lph.opt span{display:block;font-size:18px}
+  #card-proxy{border:2px solid transparent}
+  #card-proxy.on{border-color:#B4541F;background:#FFF8F2}
+  .pxsw{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;cursor:pointer;user-select:none}
+  .pxsw input{width:22px;height:22px;accent-color:#B4541F;flex:none}
+  .pxsum{background:#FFF1E6;color:#8A3E12;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:14px}
   .hist .meta a{color:var(--main);font-weight:600;text-decoration:none}
   .refresh{background:none;border:0;color:#fff;font-size:12px;opacity:.85;padding:0}
 </style>
@@ -205,6 +212,16 @@
 
   <!-- 登記 -->
   <section id="tab-reg" class="hidden">
+    <div class="card hidden" id="card-proxy">
+      <label class="pxsw"><input type="checkbox" id="pxOn">🛠 管理者補登（替同仁登記漏掉的進出）</label>
+      <div id="pxBody" class="hidden">
+        <label class="f">經手人（實際拿東西的人）</label>
+        <div class="chips" id="pxWho"><div class="hint">載入名單中…</div></div>
+        <label class="f" for="pxDate">進出日期</label>
+        <input class="t" id="pxDate" type="date">
+        <p class="hint" style="margin:8px 0 0;line-height:1.6">補登時照片可以不拍。歷程的經手人會記成上面選的人，備註自動加上「由你補登」。送出後補登模式會自動關閉。</p>
+      </div>
+    </div>
     <div class="card">
       <div class="step"><span class="n">1</span>貨品大項<span class="val" id="v-cat"></span></div>
       <div class="chips" id="cats"></div>
@@ -462,7 +479,7 @@
   };
   $('#logoutBtn').onclick = () => {
     AUTH.name = ''; AUTH.pin = ''; LS.set('name', ''); LS.set('pin2', '');
-    DATA = null; HIST = null; SHOWN = false; S.cart = []; LS.set('data', null); $('#meBox').classList.add('hidden');
+    DATA = null; HIST = null; SHOWN = false; PX.on = false; PX.who = ''; PX.staff = null; S.cart = []; LS.set('data', null); $('#meBox').classList.add('hidden');
     ['reg', 'hist', 'stock', 'admin'].forEach(x => $('#tab-' + x).classList.add('hidden'));
     $('#navAdmin').classList.add('hidden'); tab = 'reg';
     $('#submitbar').classList.add('hidden');
@@ -541,6 +558,7 @@
   const specLabel = s => s || '（無規格）';
 
   function renderReg(){
+    renderProxy();
 
     const addChip = (mode, label) => DATA.canEditItems ? `<button class="chip add" data-add="${mode}">＋ ${label}</button>` : '';
     $('#cats').innerHTML = catsList().map(c => chip(c, S.cat === c, `data-cat="${esc(c)}"`, pfSpan(c))).join('') + addChip('cat', '新增分類');
@@ -616,6 +634,30 @@
   $('#quick').onclick = e => { const b = e.target.closest('[data-q]'); if (b) setQty(b.dataset.q); };
   $('#qty').addEventListener('change', () => setQty(getQty()));
 
+  // ---------- 管理者補登 ----------
+  const PX = { on: false, who: '', date: '', staff: null };
+  const isProxy = () => PX.on && DATA && DATA.isAdmin;
+  const todayStr = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
+  function renderProxy(){
+    $('#card-proxy').classList.toggle('hidden', !DATA || !DATA.isAdmin);
+    $('#card-proxy').classList.toggle('on', isProxy());
+    $('#pxOn').checked = isProxy();
+    $('#pxBody').classList.toggle('hidden', !isProxy());
+    if (!isProxy()) return;
+    if (!PX.date) PX.date = todayStr();
+    $('#pxDate').max = todayStr(); $('#pxDate').value = PX.date;
+    if (PX.staff) $('#pxWho').innerHTML = PX.staff.map(n => chip(n, PX.who === n, `data-pxw="${esc(n)}"`)).join('');
+  }
+  $('#pxOn').onchange = async e => {
+    PX.on = e.target.checked; renderProxy(); renderCart();
+    if (PX.on && !PX.staff) {
+      try { const j = await api(null, { action: 'staff_list' }); PX.staff = j.staff.filter(s => s.active).map(s => s.name); renderProxy(); }
+      catch (err) { if (err.message !== 'AUTH') $('#pxWho').innerHTML = '<div class="err">⚠ ' + esc(err.message) + '</div>'; }
+    }
+  };
+  $('#pxWho').onclick = e => { const b = e.target.closest('[data-pxw]'); if (!b) return; PX.who = b.dataset.pxw; renderProxy(); renderCart(); };
+  $('#pxDate').onchange = e => { PX.date = e.target.value > todayStr() ? todayStr() : (e.target.value || todayStr()); renderProxy(); };
+
   function addLine(dir){
     let q = getQty();
     if (!S.item) return;
@@ -627,8 +669,8 @@
     }
     let ex = S.cart.find(c => c.id === S.item.id && c.dir === dir);
     if (ex) ex.qty += q; else { ex = { id: S.item.id, qty: q, dir, photo: '' }; S.cart.push(ex); }
-    toast('已加入' + (dir === '出' ? '出庫' : '入庫') + '：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + fmtNum(q) + (ex.photo ? '' : '，請拍照'), 'ok');
-    if (!ex.photo) askPhoto(S.cart.indexOf(ex));   // 每一項物品都要一張照片，加入後直接開相機
+    toast('已加入' + (dir === '出' ? '出庫' : '入庫') + '：' + S.item.name + (S.item.spec ? '（' + S.item.spec + '）' : '') + ' × ' + fmtNum(q) + (ex.photo || isProxy() ? '' : '，請拍照'), 'ok');
+    if (!ex.photo && !isProxy()) askPhoto(S.cart.indexOf(ex));   // 每一項物品都要一張照片，加入後直接開相機
     S.name = ''; S.item = null; $('#qty').value = 1;
     renderReg();
     scrollToCard('#card-cart');
@@ -654,10 +696,10 @@
     }
     $('#sites').innerHTML = (DATA.sites || []).slice(0, 8).map(s => chip(s, false, `data-site="${esc(s)}"`)).join('');
     const btn = $('#submitBtn');
-    const noPh = S.cart.filter(c => !c.photo).length;
-    const miss = !S.cart.length ? '請加入品項' : noPh ? `還有 ${noPh} 項沒拍照` : '';
+    const noPh = isProxy() ? 0 : S.cart.filter(c => !c.photo).length;
+    const miss = !S.cart.length ? '請加入品項' : isProxy() && !PX.who ? '補登：請先選經手人' : noPh ? `還有 ${noPh} 項沒拍照` : '';
     btn.disabled = !!miss;
-    btn.textContent = miss || `送出登記（${cartLabel()}）→ 確認`;
+    btn.textContent = miss || (isProxy() ? `補登送出（${PX.who}・${cartLabel()}）→ 確認` : `送出登記（${cartLabel()}）→ 確認`);
   }
   $('#cart').onclick = e => {
     const ph = e.target.closest('[data-ph]'); if (ph) { askPhoto(+ph.dataset.ph); return; }
@@ -669,6 +711,7 @@
   let PH_TARGET = -1;
   const phBtn = (c, k) => c.photo
     ? `<button class="lph" data-ph="${k}" aria-label="重拍"><img src="${c.photo}" alt="照片"></button>`
+    : isProxy() ? `<button class="lph opt" data-ph="${k}"><span>📷</span>可不拍</button>`
     : `<button class="lph need" data-ph="${k}"><span>📷</span>補拍</button>`;
   function askPhoto(k){ PH_TARGET = k; $('#photoIn').click(); }
   function shrinkPhoto(file){
@@ -702,14 +745,17 @@
     S.cart.forEach(c => { if (c.dir !== '出') return; const mx = capFor(itemOf(c.id), true); if (mx != null && c.qty > mx) c.qty = mx; });
     S.cart = S.cart.filter(c => c.qty > 0);
     if (!S.cart.length) { toast('清單裡的品項庫存不足，已移除', 'err'); renderCart(); return; }
-    if (S.cart.some(c => !c.photo)) { toast('每一項物品都要拍一張照片', 'err'); renderCart(); return; }
+    if (isProxy() && !PX.who) { toast('補登請先選經手人', 'err'); renderCart(); return; }
+    if (!isProxy() && S.cart.some(c => !c.photo)) { toast('每一項物品都要拍一張照片', 'err'); renderCart(); return; }
     $('#cErr').textContent = '';
     renderConfirm();
     $('#confirmBox').classList.add('show');
   }
   function renderConfirm(){
     const site = $('#site').value.trim(), note = $('#note').value.trim();
-    $('#cSum').innerHTML = `登記人：<b>${esc(DATA.me)}</b>` +
+    $('#cSum').innerHTML = (isProxy()
+      ? `<div class="pxsum">🛠 補登　經手人：<b>${esc(PX.who)}</b>　日期：<b>${esc(PX.date.replace(/-/g, '/'))}</b><br>由 ${esc(DATA.me)} 補登</div>`
+      : `登記人：<b>${esc(DATA.me)}</b>`) +
       (site ? `<br>工地／用途：${esc(site)}` : '') + (note ? `<br>備註：${esc(note)}` : '');
     const row = (c, k) => {
       const it = itemOf(c.id), mx = c.dir === '出' ? capFor(it, true) : null;
@@ -726,7 +772,7 @@
       if (rows.length) html += `<div class="cgroup ${cls}">${label}・${rows.length} 項</div>` + rows.map(([c, k]) => row(c, k)).join('');
     });
     $('#cList').innerHTML = html;
-    const ok = $('#cOk'), noPh = S.cart.filter(c => !c.photo).length;
+    const ok = $('#cOk'), noPh = isProxy() ? 0 : S.cart.filter(c => !c.photo).length;
     ok.disabled = !!noPh;
     ok.textContent = noPh ? `還有 ${noPh} 項沒拍照` : `確認送出（${cartLabel()}）`;
     ok.style.background = 'var(--main)'; ok.style.color = '#fff';
@@ -757,9 +803,12 @@
     if (btn.disabled) return;
     btn.disabled = true; btn.textContent = '上傳照片並送出中…';
     try {
-      const r = await api(null, { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart });
+      const body = { site: $('#site').value.trim(), note: $('#note').value.trim(), lines: S.cart };
+      if (isProxy()) { body.proxyFor = PX.who; body.date = PX.date; }
+      const r = await api(null, body);
+      if (isProxy()) { toast('✅ 已替 ' + PX.who + ' 補登 ' + r.count + ' 筆', 'ok'); PX.on = false; renderProxy(); }
       $('#confirmBox').classList.remove('show');
-      toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
+      if (!body.proxyFor) toast('✅ 已登記 ' + r.count + ' 筆', 'ok');
       S.cart = []; S.cat = ''; S.name = ''; S.item = null;
       $('#note').value = ''; $('#site').value = '';
       HIST = null;

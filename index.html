@@ -651,7 +651,7 @@
   $('#pxOn').onchange = async e => {
     PX.on = e.target.checked; renderProxy(); renderCart();
     if (PX.on && !PX.staff) {
-      try { const j = await api(null, { action: 'staff_list' }); PX.staff = j.staff.filter(s => s.active).map(s => s.name); renderProxy(); }
+      try { const j = await api(null, { action: 'staff_list' }); PX.staff = j.staff.map(s => s.name); renderProxy(); }
       catch (err) { if (err.message !== 'AUTH') $('#pxWho').innerHTML = '<div class="err">⚠ ' + esc(err.message) + '</div>'; }
     }
   };

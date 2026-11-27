@@ -147,6 +147,24 @@
   .pill.ok{background:#DFF3E6;color:#1E7A45}
   .pill.wait{background:#FFF4D6;color:#8A6100}
   .pill.off{background:#FDE6D4;color:#B4541F}
+  .ren{border:0;background:none;padding:0;margin:0 6px 2px 0;cursor:pointer;color:inherit;text-align:left;white-space:nowrap;font:inherit}
+  .ren b{font-size:16px;margin-right:2px !important}
+  .ren i{font-style:normal;font-size:13px;color:var(--main);opacity:.8}
+  .renbox{display:flex;gap:6px;align-items:center;flex:1 1 100%;margin-top:8px}
+  .renbox input{height:40px;border:1.5px solid var(--main);border-radius:10px;padding:0 10px;font-size:16px;min-width:0;flex:1}
+  .renbox button{height:38px;border-radius:10px;padding:0 10px;font-weight:700;font-size:14px;border:1.5px solid var(--main);background:#fff;color:var(--main)}
+  .renbox button.save{background:var(--main);color:#fff}
+  .rolebox{margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
+  .rtitle{font-weight:700;font-size:16px;color:var(--main)}
+  .rrow{background:#F4F7FB;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .rhead{display:flex;align-items:center;gap:8px}
+  .rrow .rn{flex:1;min-width:0;font-size:16px;font-weight:700}
+  .rrow .rn small{font-weight:400;color:var(--mute);font-size:12px;margin-left:4px}
+  .rtgs{display:flex;gap:8px;margin-top:8px}
+  .tg{border:1.5px solid #C8D2DE;background:#fff;color:#7A8494;font-weight:700;font-size:13px;padding:6px 10px;border-radius:999px;white-space:nowrap}
+  .tg.on{border-color:#1E7A45;background:#DFF3E6;color:#1E7A45}
+  .tg.on::before{content:'✓ '}
+  .rrow .xdel{flex:none}
   .lnk{background:#fff;border:1.5px solid #B4541F;color:#B4541F;font-weight:700;font-size:14px;padding:7px 12px;border-radius:10px;white-space:nowrap;flex:none}
   .lnk.on{background:var(--main);border-color:var(--main);color:#fff}
   .lnk.sure{background:var(--warn);border-color:var(--warn);color:#fff}
@@ -293,7 +311,7 @@
     <div class="card">
       <div class="acc-h" id="accStaff">🔐 系統登入人員管理<span class="caret">▾</span></div>
       <div id="accStaffBody">
-        <p class="hint" style="margin:10px 0 12px;line-height:1.6">在這裡新增同仁姓名與角色（會同步寫入試算表「人員」分頁）。同仁第一次登入時會自己設定 PIN；離職時按「停用」可立即收回登入權限，按最左邊「✕」則是從名單移除（過去的進出紀錄仍保留）。只有「管理者」看得到這個設定頁。</p>
+        <p class="hint" style="margin:10px 0 12px;line-height:1.6">在這裡新增同仁姓名與角色（會同步寫入試算表「人員」分頁）。同仁第一次登入時會自己設定 PIN；離職時按「停用」可立即收回登入權限，按最左邊「✕」則是從名單移除（過去的進出紀錄仍保留）。點姓名旁的 ✎ 可以改姓名（進出歷程會一起改）。只有「管理者」看得到這個設定頁。</p>
         <div id="staffList"><div class="loading"><div class="spinner"></div>讀取中…</div></div>
         <div class="addrow">
           <div><label class="f" style="margin-top:0">角色權限</label><select class="sel" id="newRole"></select></div>
@@ -301,6 +319,16 @@
           <button class="btn addstaff" id="addStaff">＋ 新增人員</button>
         </div>
         <div class="err" id="staffErr" style="color:var(--warn);font-size:14px;margin-top:8px"></div>
+        <div class="rolebox">
+          <div class="rtitle">角色權限設定</div>
+          <p class="hint" style="margin:6px 0 12px;line-height:1.6">點綠色標籤可以開關權限。「管理權限」可以看設定頁、管理人員、改名稱、調整庫存、補登；「新增品項」可以在登記頁新增分類／品項／規格。會同步到試算表「角色」分頁。</p>
+          <div id="roleList"></div>
+          <div class="addrow">
+            <div style="flex:1;min-width:0"><label class="f" style="margin-top:0">新增角色</label><input class="t" id="newRoleName" placeholder="例：外包、倉管" autocomplete="off"></div>
+            <button class="btn addstaff" id="addRole">＋ 新增角色</button>
+          </div>
+          <div class="err" id="roleErr" style="color:var(--warn);font-size:14px;margin-top:8px"></div>
+        </div>
       </div>
     </div>
     <div class="card">
@@ -993,15 +1021,25 @@
   };
 
   // ---------- 設定：人員管理（管理者） ----------
-  let STAFF = [], ROLES = ['管理者', '老闆', '工務部', '工程部'], SURE = null;
-  async function staffCall(body){
-    $('#staffErr').textContent = '';
-    try { const j = await api(null, body); STAFF = j.staff; ROLES = j.roles || ROLES; renderStaff(); return true; }
-    catch (e) { if (e.message !== 'AUTH') $('#staffErr').textContent = '⚠ ' + e.message; renderStaff(); return false; }
+  let STAFF = [], ROLES = ['管理者', '老闆', '工務部', '工程部', '其他'], RINFO = [], SURE = null, REN = -1, RREN = -1;
+  async function staffCall(body, errSel){
+    const err = $(errSel || '#staffErr');
+    $('#staffErr').textContent = ''; $('#roleErr').textContent = '';
+    try {
+      const j = await api(null, body);
+      STAFF = j.staff; ROLES = j.roles || ROLES; RINFO = j.roleInfo || RINFO;
+      if (j.renamedMe) {   // 改了自己的名字：登入資料跟著換
+        AUTH.name = j.renamedMe; LS.set('name', AUTH.name);
+        if (DATA) { DATA.me = AUTH.name; LS.set('data', DATA); $('#meName').textContent = '👤 ' + DATA.me; }
+      }
+      renderStaff(); return true;
+    }
+    catch (e) { if (e.message !== 'AUTH') err.textContent = '⚠ ' + e.message; renderStaff(); return false; }
   }
   function loadStaff(){ return staffCall({ action: 'staff_list' }); }
   function renderStaff(){
     $('#newRole').innerHTML = ROLES.map(r => `<option${r === '工程部' ? ' selected' : ''}>${esc(r)}</option>`).join('');
+    renderRoles();
     if (!STAFF.length) { $('#staffList').innerHTML = '<div class="empty">名單是空的</div>'; return; }
     $('#staffList').innerHTML = STAFF.map((s, k) => {
       const me = s.name === DATA.me;
@@ -1010,7 +1048,7 @@
       return `<div class="srow${s.active ? '' : ' off'}">
         <button class="xdel${me ? ' ghost' : ''}${sure('x') ? ' sure' : ''}" data-del-staff="${k}" aria-label="移除">${sure('x') ? '確定移除？' : '✕'}</button>
         <select class="sel" data-role="${k}"${s.active ? '' : ' disabled'}>${ROLES.map(r => `<option${r === s.role ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>
-        <div class="who"><b>${esc(s.name)}</b>${pill}${me ? ' <span class="pill ok" style="background:#E3ECF7;color:var(--main)">我</span>' : ''}
+        <div class="who"><button class="ren" data-ren="${k}" aria-label="改姓名"><b>${esc(s.name)}</b><i>✎</i></button>${pill}${me ? ' <span class="pill ok" style="background:#E3ECF7;color:var(--main)">我</span>' : ''}
 </div>
         <div class="sbtns">${
           !s.active ? `<button class="sg act-on" data-on="${k}">啟用</button>`
@@ -1019,6 +1057,7 @@
              <button class="lnk${sure('d') ? ' sure' : ''}" ${me ? 'disabled style="opacity:.4"' : `data-off="${k}"`}>${sure('d') ? '確定停用？' : '停用'}</button>`
         }</div>
         ${s.lastLogin ? `<div class="ll">最後登入：${esc(s.lastLogin)}</div>` : ''}
+        ${REN === k ? `<div class="renbox"><input id="renIn" value="${esc(s.name)}" maxlength="30" autocomplete="off" placeholder="新的姓名"><button class="save" data-rensave="${k}">儲存</button><button data-rencancel="1">取消</button></div>` : ''}
       </div>`;
     }).join('');
   }
@@ -1028,6 +1067,10 @@
     staffCall({ action: 'staff_role', target: STAFF[+s.dataset.role].name, role: s.value }).then(ok => ok && toast('已更新角色', 'ok'));
   });
   $('#staffList').addEventListener('click', e => {
+    const rn = e.target.closest('[data-ren]'), rs = e.target.closest('[data-rensave]'), rc = e.target.closest('[data-rencancel]');
+    if (rn) { REN = +rn.dataset.ren; renderStaff(); setTimeout(() => { const i = $('#renIn'); if (i) { i.focus(); i.select(); } }, 30); return; }
+    if (rc) { REN = -1; renderStaff(); return; }
+    if (rs) { renameStaff(+rs.dataset.rensave); return; }
     const r = e.target.closest('[data-reset]'), d = e.target.closest('[data-off]'), o = e.target.closest('[data-on]'), x = e.target.closest('[data-del-staff]');
     if (x) { const k = x.dataset.delStaff; if (STAFF[+k].name === DATA.me) return;
       if (SURE !== 'x' + k) { SURE = 'x' + k; renderStaff(); setTimeout(() => { if (SURE === 'x' + k) { SURE = null; renderStaff(); } }, 4000); return; }
@@ -1038,6 +1081,76 @@
       SURE = null; staffCall({ action: 'staff_toggle', target: STAFF[+k].name, active: false }).then(ok => ok && toast('已停用', 'ok')); }
     if (o) staffCall({ action: 'staff_toggle', target: STAFF[+o.dataset.on].name, active: true }).then(ok => ok && toast('已重新啟用', 'ok'));
   });
+  $('#staffList').addEventListener('keydown', e => {
+    if (e.target.id !== 'renIn') return;
+    if (e.key === 'Enter') renameStaff(REN); else if (e.key === 'Escape') { REN = -1; renderStaff(); }
+  });
+  async function renameStaff(k){
+    const s = STAFF[k], nn = ($('#renIn') ? $('#renIn').value : '').trim();
+    if (!s) return;
+    if (!nn) { $('#staffErr').textContent = '請輸入姓名'; return; }
+    if (nn === s.name) { REN = -1; renderStaff(); return; }
+    REN = -1;
+    const isMe = s.name === DATA.me;
+    const ok = await staffCall({ action: 'staff_rename', target: s.name, newName: nn });
+    if (ok) { HIST = null; PX.staff = null; toast('已改名：' + s.name + ' → ' + nn + (isMe || !s.hasPin ? '' : '（他下次登入要重新設定 PIN）'), 'ok'); }
+  }
+
+  // ---------- 角色權限 ----------
+  function renderRoles(){
+    const list = RINFO.length ? RINFO : ROLES.map(n => ({ name: n, admin: n === '管理者', add: true }));
+    $('#roleList').innerHTML = list.map((r, k) => {
+      const n = STAFF.filter(s => s.role === r.name).length, sure = SURE === 'rd' + k;
+      return `<div class="rrow"><div class="rhead">
+          <div class="rn"><button class="ren" data-rren="${k}" aria-label="改角色名稱"><b>${esc(r.name)}</b><i>✎</i></button><small>${n} 人</small></div>
+          <button class="xdel${sure ? ' sure' : ''}" data-rdel="${k}" aria-label="刪除角色">${sure ? '確定刪除？' : '✕'}</button></div>
+        ${RREN === k
+          ? `<div class="renbox"><input id="rrenIn" value="${esc(r.name)}" maxlength="20" autocomplete="off" placeholder="新的角色名稱"><button class="save" data-rrsave="${k}">儲存</button><button data-rrcancel="1">取消</button></div>`
+          : `<div class="rtgs"><button class="tg${r.admin ? ' on' : ''}" data-rt="admin" data-rk="${k}">管理權限</button>
+             <button class="tg${r.add ? ' on' : ''}" data-rt="add" data-rk="${k}">新增品項</button></div>`}</div>`;
+    }).join('');
+  }
+  $('#roleList').addEventListener('click', e => {
+    const list = RINFO;
+    const t = e.target.closest('[data-rt]'), rr = e.target.closest('[data-rren]'), rs = e.target.closest('[data-rrsave]'),
+          rc = e.target.closest('[data-rrcancel]'), d = e.target.closest('[data-rdel]');
+    if (rr) { RREN = +rr.dataset.rren; renderRoles(); setTimeout(() => { const i = $('#rrenIn'); if (i) { i.focus(); i.select(); } }, 30); return; }
+    if (rc) { RREN = -1; renderRoles(); return; }
+    if (rs) { renameRole(+rs.dataset.rrsave); return; }
+    if (t) {
+      const r = list[+t.dataset.rk]; if (!r) return;
+      const body = { action: 'staff_roleedit', role: r.name }; body[t.dataset.rt] = !r[t.dataset.rt];
+      staffCall(body, '#roleErr').then(ok => ok && toast((body[t.dataset.rt] ? '已開啟' : '已關閉') + '「' + r.name + '」的' + (t.dataset.rt === 'admin' ? '管理權限' : '新增品項權限') + '，對方重新整理後生效', 'ok'));
+    }
+    if (d) {
+      const k = d.dataset.rdel, r = list[+k]; if (!r) return;
+      if (SURE !== 'rd' + k) { SURE = 'rd' + k; renderRoles(); setTimeout(() => { if (SURE === 'rd' + k) { SURE = null; renderRoles(); } }, 4000); return; }
+      SURE = null; staffCall({ action: 'staff_roledel', role: r.name }, '#roleErr').then(ok => ok && toast('已刪除角色 ' + r.name, 'ok'));
+    }
+  });
+  $('#roleList').addEventListener('keydown', e => {
+    if (e.target.id !== 'rrenIn') return;
+    if (e.key === 'Enter') renameRole(RREN); else if (e.key === 'Escape') { RREN = -1; renderRoles(); }
+  });
+  async function renameRole(k){
+    const r = RINFO[k], nn = ($('#rrenIn') ? $('#rrenIn').value : '').trim();
+    if (!r) return;
+    if (!nn) { $('#roleErr').textContent = '請輸入角色名稱'; return; }
+    RREN = -1;
+    if (nn === r.name) { renderRoles(); return; }
+    const ok = await staffCall({ action: 'staff_roleedit', role: r.name, newRole: nn }, '#roleErr');
+    if (ok) toast('角色已改名：' + r.name + ' → ' + nn, 'ok');
+  }
+  $('#addRole').onclick = async () => {
+    const nm = $('#newRoleName').value.trim();
+    if (!nm) { $('#roleErr').textContent = '請輸入角色名稱'; return; }
+    const btn = $('#addRole'); btn.disabled = true;
+    const ok = await staffCall({ action: 'staff_roleadd', role: nm, admin: false, add: true }, '#roleErr');
+    btn.disabled = false;
+    if (ok) { $('#newRoleName').value = ''; toast('已新增角色 ' + nm + '（預設可新增品項、沒有管理權限）', 'ok'); }
+  };
+  $('#newRoleName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#addRole').click(); });
+
   $('#addStaff').onclick = async () => {
     const name = $('#newName').value.trim();
     if (!name) { $('#staffErr').textContent = '請輸入姓名'; return; }

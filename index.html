@@ -88,6 +88,9 @@
   .stock .nm small{display:block;color:var(--mute)}
   .stock .num{font-size:20px;font-weight:700;text-align:right;white-space:nowrap}
   .stock .num small{font-size:12px;font-weight:400;color:var(--mute);margin-left:2px}
+  .stock .adj{flex:none;border:1.5px solid var(--main);background:#fff;color:var(--main);font-weight:700;font-size:13px;padding:6px 9px;border-radius:10px;white-space:nowrap}
+  .adjdiff{margin-top:10px;padding:10px 12px;border-radius:10px;background:#F1F4F8;font-size:14px;line-height:1.6}
+  .adjdiff.up{background:#E8F5EC;color:#1E6B3A}.adjdiff.down{background:#FFF1E6;color:#8A3E12}
   .summary{display:flex;gap:8px;margin:4px 0 10px}
   .summary div{flex:1;background:#fff;border-radius:12px;padding:10px;text-align:center}
   .summary b{display:block;font-size:20px}
@@ -377,6 +380,23 @@
   </div>
   <div class="err" id="eErr" style="margin-top:10px"></div>
   <div class="btnrow"><button class="btn ghost" id="eCancel">取消</button><button class="btn primary" id="eOk">儲存</button></div>
+</div></div>
+
+<div class="overlay" id="adjBox"><div class="dialog">
+  <h2>調整庫存</h2>
+  <p id="aHint"></p>
+  <label class="f" for="aQty">實際數量</label>
+  <div class="qty">
+    <button class="pm" id="aMinus" aria-label="減少">−</button>
+    <input id="aQty" type="number" inputmode="decimal" min="0" step="any">
+    <button class="pm" id="aPlus" aria-label="增加">＋</button>
+  </div>
+  <div class="adjdiff" id="aDiff"></div>
+  <label class="f" for="aReason">原因（可不填）</label>
+  <input class="t" id="aReason" placeholder="例：盤點、損壞報廢、遺失" autocomplete="off">
+  <div class="sites" id="aReasons"></div>
+  <div class="err" id="aErr" style="margin-top:10px"></div>
+  <div class="btnrow"><button class="btn ghost" id="aCancel">取消</button><button class="btn primary" id="aOk">儲存</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -885,12 +905,55 @@
       (!q || [i.id, i.name, i.spec].join(' ').toLowerCase().includes(q)));
     $('#s-list').innerHTML = rows.length ? rows.map(i => `<div class="stock"><div class="id">${esc(i.id)}</div>
       <div class="nm">${esc(i.name)}${i.spec ? '（' + esc(i.spec) + '）' : ''}<small>${esc(i.cat)}${i.alert ? ' <span class="tag warn">' + esc(i.alert) + '</span>' : ''}</small></div>
-      <div class="num" style="${i.stock < 0 ? 'color:var(--warn)' : ''}">${fmtNum(i.stock)}<small>${esc(i.unit || '')}</small></div></div>`).join('')
+      <div class="num" style="${i.stock < 0 ? 'color:var(--warn)' : ''}">${fmtNum(i.stock)}<small>${esc(i.unit || '')}</small></div>${DATA.isAdmin ? `<button class="adj" data-adj="${esc(i.id)}">✏️ 調整</button>` : ''}</div>`).join('')
       : '<div class="empty">沒有符合的品項</div>';
   }
   $('#s-cat').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; ST.cat = b.dataset.v; renderStock(); };
   $('#s-flag').onclick = e => { const b = e.target.closest('[data-f]'); if (!b) return; ST.flag = b.dataset.f; renderStock(); };
   $('#s-q').oninput = e => { ST.q = e.target.value.trim(); renderStock(); };
+
+  // ---------- 管理者調整庫存 ----------
+  let ADJ = null;
+  $('#s-list').onclick = e => { const b = e.target.closest('[data-adj]'); if (b) openAdj(DATA.items.find(i => i.id === b.dataset.adj)); };
+  function openAdj(it){
+    if (!it) return;
+    ADJ = it;
+    const cur = it.counted ? (it.stock || 0) : null;
+    $('#aHint').innerHTML = `<b>${esc(it.name)}${it.spec ? '（' + esc(it.spec) + '）' : ''}</b>　${esc(it.id)}<br>帳面庫存：` +
+      (cur == null ? '尚未盤點' : `<b>${fmtNum(cur)}</b> ${esc(it.unit || '')}`);
+    $('#aQty').value = cur == null ? 0 : cur; $('#aReason').value = ''; $('#aErr').textContent = '';
+    $('#aReasons').innerHTML = ['盤點', '損壞報廢', '遺失', '找到'].map(r => chip(r, false, `data-r="${r}"`)).join('');
+    adjDiff();
+    $('#adjBox').classList.add('show');
+    setTimeout(() => $('#aQty').select(), 50);
+  }
+  function adjDiff(){
+    const it = ADJ, cur = it.counted ? (it.stock || 0) : 0, v = parseFloat($('#aQty').value);
+    const box = $('#aDiff');
+    if (!isFinite(v) || v < 0) { box.className = 'adjdiff'; box.textContent = '請輸入 0 以上的數量'; return; }
+    const d = Math.round((v - cur) * 1000) / 1000, u = esc(it.unit || '');
+    box.className = 'adjdiff' + (d > 0 ? ' up' : d < 0 ? ' down' : '');
+    box.innerHTML = d === 0 ? (it.counted ? '數量沒有變' : '會把這項設為「已盤點」，庫存 ' + fmtNum(v) + ' ' + u)
+      : `${fmtNum(cur)} → <b>${fmtNum(v)}</b>（${d > 0 ? '+' : '−'}${fmtNum(Math.abs(d))} ${u}）<br>進出歷程會多一筆「${d > 0 ? '進' : '出'} ${fmtNum(Math.abs(d))}」，用途寫「盤點調整」`;
+  }
+  $('#aQty').oninput = adjDiff;
+  $('#aMinus').onclick = () => { $('#aQty').value = Math.max(0, (parseFloat($('#aQty').value) || 0) - 1); adjDiff(); };
+  $('#aPlus').onclick = () => { $('#aQty').value = (parseFloat($('#aQty').value) || 0) + 1; adjDiff(); };
+  $('#aReasons').onclick = e => { const b = e.target.closest('[data-r]'); if (b) $('#aReason').value = b.dataset.r; };
+  $('#aCancel').onclick = () => $('#adjBox').classList.remove('show');
+  $('#aOk').onclick = async () => {
+    const v = parseFloat($('#aQty').value);
+    if (!isFinite(v) || v < 0) { $('#aErr').textContent = '請輸入 0 以上的數量'; return; }
+    const btn = $('#aOk'); btn.disabled = true; btn.textContent = '儲存中…';
+    try {
+      const r = await api(null, { action: 'stock_adjust', id: ADJ.id, target: v, reason: $('#aReason').value.trim() });
+      $('#adjBox').classList.remove('show');
+      if (r.init) { applyData(Object.assign({}, DATA, r.init)); LS.set('data', DATA); syncedNow(); } else await load(true);
+      HIST = null; renderStock();
+      toast('✓ ' + (r.msg || '已更新'), 'ok');
+    } catch (e) { if (e.message !== 'AUTH') $('#aErr').textContent = '⚠ ' + e.message; else $('#adjBox').classList.remove('show'); }
+    finally { btn.disabled = false; btn.textContent = '儲存'; }
+  };
 
   // ---------- 新增 分類／品項／規格 ----------
   let IMODE = '';
